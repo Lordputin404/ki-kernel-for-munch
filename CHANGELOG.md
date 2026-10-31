@@ -1,11 +1,16 @@
 # Ki-kernel for POCO F4 / Redmi K40S (munch)
 
-**Build Date:** 2026-10-28  
+**Build Date:** 2026-10-31  
 **Kernel Version:** Linux 4.19.325  
 **Variant:** MIUI/HyperOS, AOSP, And ColorOS/OxygenOS (Universal & Single Variants)  
 **Toolchain:** ZyCromerZ Clang 16.0.6 (LLVM 16.0.6 + GNU Binutils 2.47)  
 
 ---
+
+## Ki-kernel v1.6.1 (Beta-Test) :
+- Restored Full 40W QC3.5 / 15W Type-C Laptop Fast Charging with Smart Progressive Thermal Stepping: Re-enabled default Force Fast Charge (3000mA / 15W) and Screen-on Fast Charge in SMB5 driver, boosted HVDCP2/SW_ICL_MAX target current to 3.5A (up to 40W peak on 33W charger), and replaced blunt thermal bypass with intelligent 4-tier progressive thermal curve (<42°C: Level 0 [max turbo], 42–44°C: Level 1, 44–46°C: Level 2, 46–48°C: Level 3, >=48°C: hardware fallback) to eliminate persistent 50W thermal lock while maintaining lightning-fast charging on laptop Type-C and wall adapters.
+- Restored AnyKernel3 v1.4 Rock-Solid ROM Detection Logic: Multi-stage detection for MIUI/HyperOS, AOSP, and ColorOS/OxygenOS/RealmeUI ports with automatic OEM display variant selection.
+- AnyKernel3 GPU Selector (683 MHz OC vs 670 MHz Stock) & Native Keycheck: Volume button selection prompted before flashing boot/vendor_boot to allow choosing between OC + Undervolt (683 MHz GPU) via Vol(+) or Stock Safe Voltage (670 MHz) via Vol(-).
 
 ## Ki-kernel v1.6.0 :
 - Fixed Binder Page Allocation Failure & Overnight Sleep of Death (SoD): Increased default `watermark_scale_factor` from 20 to 100 to ensure an ~80MB safety buffer between MIN and LOW watermarks, unlocked sysctl clamping so ROMs can configure safe memory margins, and allowed `kswapd` across all online CPUs during sleep so background maintenance (dexopt, backup, sync) does not cause direct reclaim failure or freeze Binder IPC
