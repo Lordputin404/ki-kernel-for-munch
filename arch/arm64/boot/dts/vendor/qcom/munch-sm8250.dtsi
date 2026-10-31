@@ -725,11 +725,17 @@ And public attribution of xiaomi platforms(like L11R and so and)
 		regulator-max-microvolt = <1200000>;
 		regulator-enable-ramp-delay = <135>;
 		enable-active-high;
+		regulator-always-on;
+		regulator-boot-on;
 		gpio = <&tlmm 69 0>;
 		pinctrl-names = "default";
 		pinctrl-0 = <&oled_dvdd_ldo_en>;
 		vin-supply = <&pm8150a_bob>;
 	};
+};
+
+&touch_vddio_vreg {
+	status = "disabled";
 };
 
 
