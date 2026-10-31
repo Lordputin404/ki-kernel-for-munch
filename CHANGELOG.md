@@ -8,6 +8,7 @@
 ---
 
 ## Ki-kernel v1.6.1 (Beta-Test) :
+- Modern Binder Freeze API & Frozen Notification Subsystem (ColorOS 17 / Android 17): Backported full Google CAF / Android 17 Binder Freezer subsystem to resolve boot-loop / stuck logo on ColorOS 17 and next-gen Android. Added `/dev/binderfs/features/freeze_notification` and `oneway_spam_detection` in `binderfs.c`, added `BC_REQUEST_FREEZE_NOTIFICATION`, `BC_CLEAR_FREEZE_NOTIFICATION`, `BC_FREEZE_NOTIFICATION_DONE`, `BR_FROZEN_REPLY`, `BR_TRANSACTION_PENDING_FROZEN`, `BR_FROZEN_BINDER`, and `struct binder_frozen_state_info` in `binder.h`, and implemented fast-path freeze/thaw, safe notification cleanup, automatic rollback on timeout, frozen state inheritance on `binder_open`, and lockless freeze work delivery in `binder.c`.
 - Upgraded Compiler Optimization to -O3 (`CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y`) for aggressive loop unrolling, SIMD auto-vectorization, and superior instruction per clock (IPC) execution
 - Enabled Native ARMv8.2-A Architecture Extensions (`-march=armv8.2-a+crypto+dotprod`) to leverage hardware crypto engines and dot-product vector computation units on Snapdragon 870
 - Optimized Kryo 585 / Cortex-A77 Instruction Pipeline (`-mtune=cortex-a77`) for lower CPU execution latency and smoother 120 FPS frame pacing
