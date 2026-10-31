@@ -8,6 +8,10 @@
 ---
 
 ## Ki-kernel v1.6.1 (Beta-Test) :
+- Upgraded Compiler Optimization to -O3 (`CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y`) for aggressive loop unrolling, SIMD auto-vectorization, and superior instruction per clock (IPC) execution
+- Enabled Native ARMv8.2-A Architecture Extensions (`-march=armv8.2-a+crypto+dotprod`) to leverage hardware crypto engines and dot-product vector computation units on Snapdragon 870
+- Optimized Kryo 585 / Cortex-A77 Instruction Pipeline (`-mtune=cortex-a77`) for lower CPU execution latency and smoother 120 FPS frame pacing
+- Added Zero-Overhead Fast-Path Flags (`-fno-builtin-bcmp` and `-fomit-frame-pointer`) to free up general-purpose arm64 registers for active computation
 - Fixed OLED power rail regulator cleanup and early Sleep of Death: Ensured `oled_dvdd_ldo` (+1.2V) and `display_panel_vci` (+3.0V) remain permanently powered (`regulator-always-on`) across system suspend/resume and disabled redundant `touch_vddio_vreg` on munch to eliminate sudden black screen and Sleep of Death (SOD).
 - Restored Full 40W QC3.5 / 15W Type-C Laptop Fast Charging with Smart Progressive Thermal Stepping: Re-enabled default Force Fast Charge (3000mA / 15W) and Screen-on Fast Charge in SMB5 driver, boosted HVDCP2/SW_ICL_MAX target current to 3.5A (up to 40W peak on 33W charger), and replaced blunt thermal bypass with intelligent 4-tier progressive thermal curve (<42°C: Level 0 [max turbo], 42–44°C: Level 1, 44–46°C: Level 2, 46–48°C: Level 3, >=48°C: hardware fallback) to eliminate persistent 50W thermal lock while maintaining lightning-fast charging on laptop Type-C and wall adapters.
 - Restored AnyKernel3 v1.4 Rock-Solid ROM Detection Logic: Multi-stage detection for MIUI/HyperOS, AOSP, and ColorOS/OxygenOS/RealmeUI ports with automatic OEM display variant selection.
