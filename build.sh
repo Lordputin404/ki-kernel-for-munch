@@ -9,8 +9,9 @@ set -e
 
 TARGET_DEVICE=$1
 KERNEL_NAME="Ki-kernel"
-KERNEL_VERSION="v1.6.0"
+KERNEL_VERSION="v1.6.1"
 BUILD_DATETIME=$(date +'%Y%m%d_%H%M')
+GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "nogit")
 
 if [ -z "$1" ]; then
     echo "=========================================================="
@@ -505,13 +506,13 @@ cp -f anykernel_template/anykernel.sh anykernel/anykernel.sh
 cd anykernel
 
 if [ "$TARGET_OS" == "aosp" ]; then
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-AOSP-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-AOSP-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 elif [ "$TARGET_OS" == "miui" ]; then
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-MIUI-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-MIUI-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 elif [ "$TARGET_OS" == "coloros" ]; then
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-ColorOS-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-ColorOS-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 else
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-Universal-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-Universal-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 fi
 
 zip -r9 "$ZIP_FILENAME" ./* -x .git .gitignore out/ ./*.zip

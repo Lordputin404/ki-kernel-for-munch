@@ -911,11 +911,21 @@ static void _sde_kms_drm_check_dpms(struct drm_atomic_state *old_state,
 	struct drm_crtc *crtc;
 	int i, old_mode, new_mode, old_fps, new_fps;
 
+	if (!old_state || (unsigned long)old_state < PAGE_OFFSET ||
+	    !old_state->connectors || (unsigned long)old_state->connectors < PAGE_OFFSET)
+		return;
+
 	for_each_old_connector_in_state(old_state, connector,
 			old_conn_state, i) {
+		if (!connector || (unsigned long)connector < PAGE_OFFSET ||
+		    !connector->state || (unsigned long)connector->state < PAGE_OFFSET ||
+		    !old_conn_state || (unsigned long)old_conn_state < PAGE_OFFSET)
+			continue;
+
 		crtc = connector->state->crtc ? connector->state->crtc :
 			old_conn_state->crtc;
-		if (!crtc)
+		if (!crtc || (unsigned long)crtc < PAGE_OFFSET ||
+		    !crtc->state || (unsigned long)crtc->state < PAGE_OFFSET)
 			continue;
 
 		new_fps = crtc->state->mode.vrefresh;
@@ -1161,7 +1171,7 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 	struct msm_display_conn_params params;
 	int i, rc = 0;
 
-	if (!kms || !old_state)
+	if (!kms || !old_state || (unsigned long)old_state < PAGE_OFFSET)
 		return;
 	sde_kms = to_sde_kms(kms);
 
@@ -1176,41 +1186,51 @@ static void sde_kms_complete_commit(struct msm_kms *kms,
 
 	SDE_ATRACE_BEGIN("sde_kms_complete_commit");
 
-	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
-		sde_crtc_complete_commit(crtc, old_crtc_state);
+	if (old_state->crtcs && (unsigned long)old_state->crtcs >= PAGE_OFFSET) {
+		for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i) {
+			sde_crtc_complete_commit(crtc, old_crtc_state);
 
-		/* complete secure transitions if any */
-		if (sde_kms->smmu_state.transition_type == POST_COMMIT)
-			_sde_kms_secure_ctrl(sde_kms, crtc, true);
-	}
-
-	for_each_old_connector_in_state(old_state, connector,
-			old_conn_state, i) {
-		struct sde_connector *c_conn;
-
-		c_conn = to_sde_connector(connector);
-		if (!c_conn->ops.post_kickoff)
-			continue;
-
-		memset(&params, 0, sizeof(params));
-
-		sde_connector_complete_qsync_commit(connector, &params);
-
-		rc = c_conn->ops.post_kickoff(connector, &params);
-		if (rc) {
-			pr_err("Connector Post kickoff failed rc=%d\n",
-					 rc);
+			/* complete secure transitions if any */
+			if (sde_kms->smmu_state.transition_type == POST_COMMIT)
+				_sde_kms_secure_ctrl(sde_kms, crtc, true);
 		}
-
-		sde_connector_fod_notify(connector);
 	}
 
-	_sde_kms_drm_check_dpms(old_state, DRM_PANEL_EVENT_BLANK);
+	if (old_state->connectors && (unsigned long)old_state->connectors >= PAGE_OFFSET) {
+		for_each_old_connector_in_state(old_state, connector,
+				old_conn_state, i) {
+			struct sde_connector *c_conn;
+
+			if (!connector || (unsigned long)connector < PAGE_OFFSET)
+				continue;
+
+			c_conn = to_sde_connector(connector);
+			if (!c_conn->ops.post_kickoff)
+				continue;
+
+			memset(&params, 0, sizeof(params));
+
+			sde_connector_complete_qsync_commit(connector, &params);
+
+			rc = c_conn->ops.post_kickoff(connector, &params);
+			if (rc) {
+				pr_err("Connector Post kickoff failed rc=%d\n",
+						 rc);
+			}
+
+			sde_connector_fod_notify(connector);
+		}
+	}
+
+	if (old_state->connectors && (unsigned long)old_state->connectors >= PAGE_OFFSET)
+		_sde_kms_drm_check_dpms(old_state, DRM_PANEL_EVENT_BLANK);
 
 	pm_runtime_put_sync(sde_kms->dev->dev);
 
-	for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i)
-		_sde_kms_release_splash_resource(sde_kms, crtc);
+	if (old_state->crtcs && (unsigned long)old_state->crtcs >= PAGE_OFFSET) {
+		for_each_old_crtc_in_state(old_state, crtc, old_crtc_state, i)
+			_sde_kms_release_splash_resource(sde_kms, crtc);
+	}
 
 	sde_kms_check_for_ext_vote(sde_kms, &priv->phandle);
 

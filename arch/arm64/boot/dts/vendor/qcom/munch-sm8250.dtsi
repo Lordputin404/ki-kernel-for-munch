@@ -734,9 +734,7 @@ And public attribution of xiaomi platforms(like L11R and so and)
 	};
 };
 
-&touch_vddio_vreg {
-	status = "disabled";
-};
+
 
 
 &tlmm {
