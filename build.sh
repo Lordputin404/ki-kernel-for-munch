@@ -9,7 +9,7 @@ set -e
 
 TARGET_DEVICE=$1
 KERNEL_NAME="Ki-kernel"
-KERNEL_VERSION="v1.6.1"
+KERNEL_VERSION="v1.6"
 BUILD_DATETIME=$(date +'%Y%m%d_%H%M')
 GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "nogit")
 
@@ -501,6 +501,7 @@ fi
 # DO NOT include dtbo (preserve panel/touch drivers from ROM)
 rm -f anykernel/dtbo.img anykernel/kernels/dtbo.img anykernel/kernels/*/*.img 2>/dev/null
 cp -f anykernel_template/anykernel.sh anykernel/anykernel.sh
+sed -i "s/| munch /| ${TARGET_DEVICE} /g" anykernel/anykernel.sh
 [ -d anykernel_template/tools ] && cp -rf anykernel_template/tools/* anykernel/tools/ 2>/dev/null || true
 
 cd anykernel

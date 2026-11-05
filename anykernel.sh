@@ -34,7 +34,7 @@ NO_BLOCK_DISPLAY=1;
 
 ui_print " ";
 ui_print "  ===========================================";
-ui_print "  |         Ki-Kernel v1.6.0 | munch        |";
+ui_print "  |          Ki-Kernel v1.6 | munch         |";
 ui_print "  |                                         |";
 ui_print "  ===========================================";
 ui_print " ";
@@ -321,7 +321,7 @@ if [ -f "$AKHOME/kernels/miui/Image" ] && [ -f "$AKHOME/kernels/aosp/Image" ]; t
         else
             ui_print "  -> ROM Detected : ${ROM_TYPE:-Xiaomi MIUI / HyperOS}";
         fi;
-        ui_print "  -> Kernel Target: MIUI / HyperOS variant";
+        ui_print "  -> Kernel Target: MIUI / HyperOS";
         cp -f "$AKHOME/kernels/miui/Image" "$AKHOME/Image";
         [ -f "$AKHOME/kernels/miui/dtb" ] && cp -f "$AKHOME/kernels/miui/dtb" "$AKHOME/dtb_vendor";
     else
@@ -331,7 +331,7 @@ if [ -f "$AKHOME/kernels/miui/Image" ] && [ -f "$AKHOME/kernels/aosp/Image" ]; t
         else
             ui_print "  -> ROM Detected : ${ROM_TYPE:-AOSP / Custom ROM}";
         fi;
-        ui_print "  -> Kernel Target: AOSP variant";
+        ui_print "  -> Kernel Target: AOSP";
         cp -f "$AKHOME/kernels/aosp/Image" "$AKHOME/Image";
         [ -f "$AKHOME/kernels/aosp/dtb" ] && cp -f "$AKHOME/kernels/aosp/dtb" "$AKHOME/dtb_vendor";
     fi;
@@ -341,7 +341,6 @@ elif [ -f "$AKHOME/kernels/coloros/Image" ]; then
     ui_print "--------------------------------------";
     ui_print "  -> Kernel Target: ColorOS / OxygenOS / RealmeUI";
     ui_print "  -> Compatibility: Universal OPlus Port Mode";
-    ui_print "  -> Stub Drivers : OPlus Watchdog & Daemons Bypass active";
     ui_print "--------------------------------------";
     cp -f "$AKHOME/kernels/coloros/Image" "$AKHOME/Image";
     [ -f "$AKHOME/kernels/coloros/dtb" ] && cp -f "$AKHOME/kernels/coloros/dtb" "$AKHOME/dtb_vendor";
@@ -398,11 +397,11 @@ if [ -f "$AKHOME/dtb_oc" ] && [ -f "$AKHOME/dtb_stock" ]; then
     if [ "$IS_RECOVERY" -eq 1 ]; then
         ui_print " ";
         ui_print "----------------------------------------";
-        ui_print " Profil GPU & Voltase:";
-        ui_print "   (Vol +) OC + UV (683 MHz, Undervolt)";
-        ui_print "   (Vol -) Stock   (670 MHz, Safe Volt)";
+        ui_print " GPU Profile Selector:";
+        ui_print "   (Vol +) OC + UV (683-150 MHz)";
+        ui_print "   (Vol -) Stock   (670-300 MHz)";
         ui_print "----------------------------------------";
-        ui_print " Menunggu input tombol (timeout 15 detik, default: Stock Safe Volt)...";
+        ui_print " Waiting for key press (15s timeout, default: Stock)...";
 
         CHOSEN_DTB="stock";
         KEYCHECK_BIN="";
@@ -422,7 +421,7 @@ if [ -f "$AKHOME/dtb_oc" ] && [ -f "$AKHOME/dtb_stock" ]; then
                 ui_print "  Selected : Stock Default (670 MHz)" " ";
                 CHOSEN_DTB="stock";
             else
-                ui_print "  ! Timeout reached, memakai default: Stock Default (670 MHz)" " ";
+                ui_print "  ! Timeout reached, defaulting to: Stock Default (670 MHz)" " ";
                 CHOSEN_DTB="stock";
             fi;
         else
@@ -434,7 +433,7 @@ if [ -f "$AKHOME/dtb_oc" ] && [ -f "$AKHOME/dtb_stock" ]; then
 
                 if [ -n "$key_event" ]; then
                     if echo "$key_event" | grep -qiE "KEY_VOLUMEUP|0073"; then
-                        ui_print "  Selected : OC + Undervolt (683 MHz)" " ";
+                        ui_print "  Selected : OC + Undervolt (683-150 MHz)" " ";
                         CHOSEN_DTB="oc";
                         break;
                     fi;
@@ -448,15 +447,15 @@ if [ -f "$AKHOME/dtb_oc" ] && [ -f "$AKHOME/dtb_stock" ]; then
 
                 now=$(date +%s 2>/dev/null || echo 0);
                 if [ "$start" -gt 0 ] && [ "$now" -gt 0 ] && [ $((now - start)) -ge $timeout ]; then
-                    ui_print "  ! Timeout reached, memakai default: Stock Default (670 MHz)" " ";
+                    ui_print "  ! Timeout reached, defaulting to: Stock Default (670 MHz)" " ";
                     CHOSEN_DTB="stock";
                     break;
                 fi;
             done;
         fi;
     else
-        # Flashing dari Android menyala (KernelSU / Magisk / FKM app)
-        ui_print " -> Flashing via App (non-recovery): Memakai default Stock Default (670 MHz)";
+        # Flashing from booted Android (KernelSU / Magisk / FKM app)
+        ui_print " -> Flashing via App (non-recovery): Using default Stock Default (670 MHz)";
         CHOSEN_DTB="stock";
     fi;
 fi;
@@ -480,7 +479,7 @@ fi;
 rm -f "$AKHOME/dtb" "$AKHOME/dtbo.img" "$AKHOME/dtbo" 2>/dev/null;
 
 # Verify that target Image exists before proceeding with flash
-[ -f "$AKHOME/Image" ] || abort "  ! Image tidak ditemukan di $AKHOME (cek folder kernels/ dan paket AnyKernel3)";
+[ -f "$AKHOME/Image" ] || abort "  ! Kernel Image not found in $AKHOME (check kernels/ directory and zip integrity)";
 
 # 1. Flash Kernel Image to boot partition with e404 dynamic cmdline
 ui_print "- Flashing kernel (boot)...";
@@ -490,7 +489,7 @@ flash_boot;
 
 # 2. Flash DTB to vendor_boot partition
 if [ -f "$AKHOME/dtb_vendor" ]; then
-    ui_print "- Flashing DTB (vendor_boot)...";
+    ui_print "- Flashing DTB ...";
     BLOCK=vendor_boot;
     reset_ak;
     rm -f "$AKHOME/Image";

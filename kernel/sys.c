@@ -201,6 +201,7 @@ out:
 #ifdef CONFIG_KSU_SUSFS
 extern bool susfs_is_priority_uid_filtered(uid_t uid);
 #endif // #ifdef CONFIG_KSU_SUSFS
+#include <linux/fgetpriority.h>
 
 SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 {
@@ -251,6 +252,8 @@ SYSCALL_DEFINE3(setpriority, int, which, int, who, int, niceval)
 			if (cred->uid.val >= 10000 && susfs_is_priority_uid_filtered(uid.val))
 				goto out_unlock;
 #endif // #ifdef CONFIG_KSU_SUSFS
+			if (fgetpriority_is_blocked(cred->uid.val, uid.val))
+				goto out_unlock;
 			user = find_user(uid);
 			if (!user)
 				goto out_unlock;	/* No processes for this user */
@@ -323,6 +326,8 @@ SYSCALL_DEFINE2(getpriority, int, which, int, who)
 			if (cred->uid.val >= 10000 && susfs_is_priority_uid_filtered(uid.val))
 				goto out_unlock;
 #endif // #ifdef CONFIG_KSU_SUSFS
+			if (fgetpriority_is_blocked(cred->uid.val, uid.val))
+				goto out_unlock;
 			user = find_user(uid);
 			if (!user)
 				goto out_unlock;	/* No processes for this user */

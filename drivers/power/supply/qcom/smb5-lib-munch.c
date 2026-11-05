@@ -3545,40 +3545,44 @@ static int smblib_get_screen_on_clamped_level(struct smb_charger *chg, int raw_l
 	union power_supply_propval batt_temp = {0, };
 	int max_level = chg->thermal_levels;
 
+	/*
+	 * Force Fast Charge (Screen ON or OFF):
+	 * Completely unthrottles charging power to full speed (level 0).
+	 * Protects hardware only if battery reaches critical 49.0°C.
+	 */
+	if (chg->force_fast_charge > 0) {
+		smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, &batt_temp);
+		if (batt_temp.intval >= 490)
+			return raw_level;
+		return 0;
+	}
+
+	if (!chg->screen_on_fast_charge || !chg->screen_is_on)
+		return raw_level;
+
 	smblib_get_prop_from_bms(chg, POWER_SUPPLY_PROP_TEMP, &batt_temp);
 
 	/*
-	 * Force Fast Charge & Screen-On Fast Charge:
-	 * Keeps charging wattage maximum ("gacor"):
-	 * - Laptop C-to-C gets full 15W (3A @ 5V).
-	 * - 33W QC/HVDCP gets full 40W peak.
-	 * - 67W PPS gets full 67W peak.
-	 *
-	 * Smart Progressive Thermal Stepping (eliminates persistent 50W lock & protects battery):
-	 * - Under 42°C: Level 0 (Full maximum wattage: 67W PPS / 40W QC / 15W USB)
-	 * - 42°C - 44°C: Level 1 (~45W-50W PPS / ~32W QC)
-	 * - 44°C - 46°C: Level 2 (~35W PPS / ~26W QC)
-	 * - 46°C - 48°C: Level 3 (~25W PPS / ~20W QC)
-	 * - >= 48°C: Fallback to raw system thermal level for absolute hardware & battery safety
+	 * Screen-On Fast Charge:
+	 * Keeps charging wattage gacor (full speed) while using the phone / gaming:
+	 * - Under 45°C: level 0 (Full turbo speed 67W / PPS)
+	 * - 45°C - 47°C: level 1 (~45W-50W PPS)
+	 * - 47°C - 49°C: level 3 (~35W PPS)
+	 * - >= 49°C: fallback to raw thermal level for battery protection
 	 */
-	if (chg->force_fast_charge > 0 || (chg->screen_on_fast_charge && chg->screen_is_on)) {
-		if (batt_temp.intval < 420)
-			max_level = 0;
-		else if (batt_temp.intval < 440)
-			max_level = 1;
-		else if (batt_temp.intval < 460)
-			max_level = 2;
-		else if (batt_temp.intval < 480)
-			max_level = 3;
-		else
-			max_level = chg->thermal_levels;
+	if (batt_temp.intval < 450)
+		max_level = 0;
+	else if (batt_temp.intval < 470)
+		max_level = 1;
+	else if (batt_temp.intval < 490)
+		max_level = 3;
+	else
+		max_level = chg->thermal_levels;
 
-		if (raw_level > max_level) {
-			pr_info("smb5: Fast Charge clamp: raw_lvl=%d -> clamped_lvl=%d (batt_temp=%d, screen_on=%d, force=%d)\n",
-				raw_level, max_level, batt_temp.intval, chg->screen_on_fast_charge, chg->force_fast_charge);
-			return max_level;
-		}
-		return raw_level;
+	if (raw_level > max_level) {
+		pr_info("smb5: Screen-On Fast Charge clamp: raw_lvl=%d -> clamped_lvl=%d (batt_temp=%d, screen_on=%d, force=%d)\n",
+			raw_level, max_level, batt_temp.intval, chg->screen_on_fast_charge, chg->force_fast_charge);
+		return max_level;
 	}
 
 	return raw_level;
@@ -3726,10 +3730,9 @@ int smblib_set_force_fast_charge(struct smb_charger *chg, int val)
 			   chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3 ||
 			   chg->real_charger_type == POWER_SUPPLY_TYPE_USB_HVDCP_3P5) {
 			if (chg->force_fast_charge > 0) {
-				int hvdcp_target = max(chg->force_fast_charge_ua, 3500000);
-				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, hvdcp_target);
+				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, chg->force_fast_charge_ua);
 				if (is_client_vote_enabled(chg->usb_icl_votable, HVDCP2_ICL_VOTER))
-					vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, true, hvdcp_target);
+					vote(chg->usb_icl_votable, HVDCP2_ICL_VOTER, true, chg->force_fast_charge_ua);
 			} else {
 				vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true, HVDCP_CURRENT_UA);
 				if (is_client_vote_enabled(chg->usb_icl_votable, HVDCP2_ICL_VOTER))
@@ -9437,7 +9440,7 @@ static void smblib_handle_hvdcp_check_timeout(struct smb_charger *chg,
 			if (!chg->raise_vbus_to_detect
 					&& chg->real_charger_type != POWER_SUPPLY_TYPE_USB_HVDCP_3P5) {
 				int qc_icl = (chg->force_fast_charge > 0) ?
-						max(chg->force_fast_charge_ua, 3500000) : 0;
+						chg->force_fast_charge_ua : 0;
 				if (chg->is_qc_class_a)
 					vote(chg->usb_icl_votable, SW_ICL_MAX_VOTER, true,
 						qc_icl ? qc_icl : HVDCP_CLASS_A_MAX_UA);
@@ -12880,10 +12883,10 @@ int smblib_init(struct smb_charger *chg)
 	chg->thermal_status = TEMP_BELOW_RANGE;
 	chg->pps_thermal_level = -EINVAL;
 	chg->screen_is_on = true;
-	chg->screen_on_fast_charge = 1;
+	chg->screen_on_fast_charge = 0;
 	chg->raw_system_temp_level = 0;
-	chg->force_fast_charge = 1;
-	chg->force_fast_charge_ua = 3000000;
+	chg->force_fast_charge = 0;
+	chg->force_fast_charge_ua = 500000;
 	chg->pd_verifed = true;
 #if (!defined CONFIG_FUEL_GAUGE_BQ27Z561_MUNCH) && (!defined CONFIG_DUAL_FUEL_GAUGE_BQ27Z561)
 	chg->esr_work_status = ESR_CHECK_FCC_NOLIMIT;

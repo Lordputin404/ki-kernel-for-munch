@@ -1,61 +1,34 @@
 # Ki-kernel for POCO F4 / Redmi K40S (munch)
 
-**Build Date:** 2026-10-31  
+**Build Date:** 2026-11-05  
 **Kernel Version:** Linux 4.19.325  
 **Variant:** MIUI/HyperOS, AOSP, And ColorOS/OxygenOS (Universal & Single Variants)  
 **Toolchain:** ZyCromerZ Clang 16.0.6 (LLVM 16.0.6 + GNU Binutils 2.47)  
 
 ---
 
-## Ki-kernel v1.6.1 (Beta-Test) :
-- Fix SDE Display Engine Page Fault & Home Screen Crash (ColorOS 17 / HyperOS): Fixed a kernel paging fault in `sde_kms_complete_commit` caused by a use-after-free / race where `drm_atomic_helper_cleanup_planes` was executing prematurely before hardware KMS commit completion. Inverted commit/cleanup execution order in `techpack/display` (`msm_atomic.c`) and added explicit kernel pointer validation (`PAGE_OFFSET` check) to `for_each_old_connector_in_state` macros and connector/CRTC state loops in `sde_kms.c` and `drm_atomic.h`.
-- Modern Binder Freeze API & Frozen Notification Subsystem (ColorOS 17 / Android 17): Backported full Google CAF / Android 17 Binder Freezer subsystem to resolve boot-loop / stuck logo on ColorOS 17 and next-gen Android. Added `/dev/binderfs/features/freeze_notification` and `oneway_spam_detection` in `binderfs.c`, added `BC_REQUEST_FREEZE_NOTIFICATION`, `BC_CLEAR_FREEZE_NOTIFICATION`, `BC_FREEZE_NOTIFICATION_DONE`, `BR_FROZEN_REPLY`, `BR_TRANSACTION_PENDING_FROZEN`, `BR_FROZEN_BINDER`, and `struct binder_frozen_state_info` in `binder.h`, and implemented fast-path freeze/thaw, safe notification cleanup, automatic rollback on timeout, frozen state inheritance on `binder_open`, and lockless freeze work delivery in `binder.c`.
-- Fix HyperOS / MIUI Home Screen Freeze & Deadlock: Replaced blocking `cancel_delayed_work_sync(&input_boost_rem)` with asynchronous `cancel_delayed_work` in `drivers/cpufreq/cpu-boost.c` to prevent workqueue deadlock on consecutive touch inputs, optimized `update_policy_online()` with visited CPU mask to update policy once per cluster instead of looping all 8 cores (eliminates 62.5% of `policy->rwsem` lock contention), calibrated touch IRQ debounce to 80ms to prevent interrupt storm deadlocks with HyperOS `mi_thermald`/`perfd`, and protected userspace sched boost refcounts.
-- Upgraded Compiler Optimization to -O3 (`CONFIG_CC_OPTIMIZE_FOR_PERFORMANCE_O3=y`) for aggressive loop unrolling, SIMD auto-vectorization, and superior instruction per clock (IPC) execution
-- Enabled Native ARMv8.2-A Architecture Extensions (`-march=armv8.2-a+crypto+dotprod`) to leverage hardware crypto engines and dot-product vector computation units on Snapdragon 870
-- Optimized Kryo 585 / Cortex-A77 Instruction Pipeline (`-mtune=cortex-a77`) for lower CPU execution latency and smoother 120 FPS frame pacing
-- Added Zero-Overhead Fast-Path Flags (`-fno-builtin-bcmp` and `-fomit-frame-pointer`) to free up general-purpose arm64 registers for active computation
-- Fixed OLED power rail regulator cleanup and early Sleep of Death: Hardened `drivers/regulator/core.c` (`regulator_late_cleanup`) to permanently exempt display, OLED, and panel power rails (`display_panel_vci`, `disp_vddio_vreg`, `oled_dvdd_ldo`) from late-init power disabling, protecting the display across suspend/resume even when ROM dtbo.img lacks `regulator-always-on`, and restored display/touch power rails in munch device tree.
-- Restored Full 40W QC3.5 / 15W Type-C Laptop Fast Charging with Smart Progressive Thermal Stepping: Re-enabled default Force Fast Charge (3000mA / 15W) and Screen-on Fast Charge in SMB5 driver, boosted HVDCP2/SW_ICL_MAX target current to 3.5A (up to 40W peak on 33W charger), and replaced blunt thermal bypass with intelligent 4-tier progressive thermal curve (<42°C: Level 0 [max turbo], 42–44°C: Level 1, 44–46°C: Level 2, 46–48°C: Level 3, >=48°C: hardware fallback) to eliminate persistent 50W thermal lock while maintaining lightning-fast charging on laptop Type-C and wall adapters.
-- Restored AnyKernel3 v1.4 Rock-Solid ROM Detection Logic: Multi-stage detection for MIUI/HyperOS, AOSP, and ColorOS/OxygenOS/RealmeUI ports with automatic OEM display variant selection.
-- AnyKernel3 GPU Selector (683 MHz OC vs 670 MHz Stock) & Native Keycheck: Volume button selection prompted before flashing boot/vendor_boot to allow choosing between OC + Undervolt (683 MHz GPU) via Vol(+) or Stock Safe Voltage (670 MHz) via Vol(-).
+## Ki-kernel v1.6.1 :
+- Added built-in fgetpriority UID priority hiding to defeat syscall-based app detection (Applist Detector/Momo)
+- Accelerated display & frame sync: speed up sync_file ioctl by omitting debug names (improves SurfaceFlinger and gaming FPS)
+- Optimized memory zeroing: align clear_page() to 16 bytes for Cortex-A77/A55 cacheline throughput
+- Silenced smcinvoke false error logspam during suspend/resume
+- Fixed ARM PMU and devfreq memlat random reboots and qspinlock lockups
+- Restored stable v1.5 display KMS commit order and regulator late cleanup
+- Restored stable v1.5 kswapd LITTLE cluster affinity (CPUs 0-3) and watermark scale factor (improves gaming stability and prevents aggressive LMK oom_reaper)
 
-## Ki-kernel v1.6.0 :
-- Fixed Binder Page Allocation Failure & Overnight Sleep of Death (SoD): Increased default `watermark_scale_factor` from 20 to 100 to ensure an ~80MB safety buffer between MIN and LOW watermarks, unlocked sysctl clamping so ROMs can configure safe memory margins, and allowed `kswapd` across all online CPUs during sleep so background maintenance (dexopt, backup, sync) does not cause direct reclaim failure or freeze Binder IPC
-- Fixed Sysfs Invalid Permissions Warning: Corrected `ki_profile` group attribute permissions from 0666 to 0664 to eliminate kernel call trace warnings on boot
-- Added Interactive Volume Key Profile Selector in AnyKernel3: Prompted before flashing boot/vendor_boot to allow users to choose between OC + Undervolt (683 MHz GPU) via Vol(+) or Stock (670 MHz) via Vol(-) with reliable key event parsing (defaults to OC+UV after 15s or when flashed via app)
-- Fixed Bypass Charging on ColorOS / OxygenOS: Ignored non-root / charger-hal-pol polling writes of '0' to bypass_charging and input_suspend in SMB5 driver, keeping bypass charging persistently active during gaming
-- Fixed Sleep of Death (SoD) & ADB Offline on Screen Deep Eco (screen_off_battery): Replaced blocking down_write with down_write_trylock on cpufreq policy rwsem to eliminate deadlocks with secondary CPU offlining during system suspend
-- Fixed Screen-Off Requeue Storm: Silenced highpri_wq 50ms requeue loops in ki_profile when display is asleep and secondary cores are offline, eliminating timer wakeups and deep sleep aborts
-- Fixed Sleep of Death & PCIe Wi-Fi Crash on Weekclock (Boeffla Wakelock Blocker): Removed wlan_pno_wl and wlan_extscan_wl from default blocked wakelocks and whitelisted wlan, pno, dwc3, and usb in is_critical_wakelock() to protect active PCIe Wi-Fi PNO scans and prevent ADB going offline during idle
-- Fixed Dynamic Fsync Screen-Off Suspend Hang: Protected ksys_sync() with a kernel wakeup_source (dyn_fsync_ws) so the device cannot enter deep suspend while storage flush is executing, eliminating UFS I/O state D hangs
-- Ported task_is_critical() (oom_score_adj <= -900) to mm/vmscan.c to skip direct reclaim throttling on SurfaceFlinger, display composer, and camera (eliminates video stuttering, camera lag, and UI rendering stalls)
-- Optimized OPlus Enforcing Spoofing in selinuxfs.c targeting Play Integrity / GMS and user apps while preserving permissive state for system service daemons to prevent hardware service denials (URCC, RIL, camera, audio, sensors)
-- Fixed AnyKernel3 auto-detection order: Checks recovery system fingerprint (ro.system.build.fingerprint), /system_root/my_product, and system build.prop before checking vendor region to guarantee ColorOS / OxygenOS / RealmeUI ports are never misdetected as MIUI
-- Added 2000ms debounce (KI_PSY_SETTLE_MS) in power supply notifier to eliminate SMB5 IRQ storms and severe thermal/profile throttling lag when connecting a charger
-- Added 2-second debounce in ki_daemon bypass charging controller to eliminate charger flapping during plug-in
-- Removed kernel-side vm_swappiness overrides in ki_profile to let ROM defaults manage swap behavior
-- Disabled CONFIG_PROC_CHILDREN in defconfig to eliminate useless task traversal overhead
-- Completely eliminated redundant ki_profile dmesg log spam by tracking last applied profile mode
-- Fixed screen-off suspend aborts (alarmtimer.0.auto error -16) by lengthening daemon poll interval to 10s when display is asleep (fixes heavy battery drain)
-- Optimized daemon polling lifecycle (1.5s during gaming, 3.0s during regular usage, 10.0s when screen is off)
-- Corrected MGLRU presets in WebUI (Mode 1: Safe/Gaming vs Mode 7: Aggressive/Multitasking) to prevent page-table lock stalls while gaming
-- Added Fast Reboot (Zygote restart) in WebUI for AOSP with automatic detection and safe reboot on HyperOS/MIUI
-- Added Android system notifications when Game Turbo activates and deactivates
-
-## Ki-kernel v1.5.1 :
-- Tuned Balanced profile WALT migration margins to 90/82 (fixed severe FPS drop & stutter in 120Hz/90Hz)
-- Raised Balanced profile down-rate hold duration (down_us) to 5000us (5ms) to eliminate mid-frame dips
-- Accelerated Balanced profile ramp-up (up_us) to 850us / 2850us / 3850us for smooth touch response
-- Optimized Balanced hispeed load thresholds to 82% / 82% / 84% for responsive mid-load transitions
-- Added modest I/O wait boost (iowait_boost_max = 5) in Balanced mode to eliminate storage lag
-- Retained 1.80GHz / 2.05GHz / 2.36GHz frequency ceilings in Balanced profile for maximum thermal comfort
-- Fixed Auto Game Turbo toggle lifecycle bug in WebUI & Ki-Daemon (prevented toggling back ON)
-- Added native 'ki_daemon start' command to spawn detached background processes without external nohup dependency
-- Implemented graceful pause state (DAEMON_ENABLED=0) in Ki-Daemon instead of abrupt SIGKILL/stale PID traps
-- Added instant status file generation with 0666 permissions on Ki-Daemon startup to prevent WebUI race conditions
-- Expanded built-in Auto Game Turbo game detections (Sky: Children of the Light, Free Fire MAX, Roblox, Minecraft, eFootball, CarX Street, Blood Strike, Honor of Kings, Honkai Impact 3, etc.)
-- Hardened kernel Universal Thermal Auto-Guard with persistent user override and pocket safety
+## Ki-kernel v1.6 :
+- Fix Selinux
+- Updated ADIOS I/O scheduler v3.3.0
+- Added AnyKernel GPU selector 
+- Added YukiSU manager support and YukiSU feature
+- Synced SuSFS v2.3.0 upstream changes and fixed UID filter UAF race conditions
+- Added SuSFS multi-user and dual apps UID support with no-atime parsing
+- Fixed Dynamic Fsync screen-off suspend hangs
+- Fixed Binder page allocation failures and improved kswapd sleep reclaim
+- Fixed cpufreq policy rwsem suspend deadlocks
+- Fixed cpu-boost touch workqueue deadlocks and reduced policy lock contention
+- Fixed Wakelock Blocker PCIe Wi-Fi drops and USB/ADB disconnects
+- Fixed Ki-Profile screen-off workqueue loops and deep sleep wakeups
 
 ## Ki-kernel v1.5 :
 - Updated BakaSU and ReSukiSU to UAPI v6
