@@ -8,12 +8,14 @@
 ---
 
 ## Ki-kernel v1.6.1 :
+- Fixed Samsung E4 AMOLED black screen bug: permanently protected display power rails (`display_panel_vci`, `disp_vddio_vreg`, `oled_dvdd_ldo`) from being cut off at second 32 by `regulator_late_cleanup`, completely eliminating hard reboots
+- Fixed AnyKernel3 Universal installer: initialized `$AKHOME` directory binding to resolve `! Kernel Image not found` abort during recovery flashing
 - Added built-in fgetpriority UID priority hiding to defeat syscall-based app detection (Applist Detector/Momo)
 - Accelerated display & frame sync: speed up sync_file ioctl by omitting debug names (improves SurfaceFlinger and gaming FPS)
 - Optimized memory zeroing: align clear_page() to 16 bytes for Cortex-A77/A55 cacheline throughput
 - Silenced smcinvoke false error logspam during suspend/resume
 - Fixed ARM PMU and devfreq memlat random reboots and qspinlock lockups
-- Restored stable v1.5 display KMS commit order and regulator late cleanup
+- Restored stable v1.5 display KMS commit order and touch synchronization
 - Restored stable v1.5 kswapd LITTLE cluster affinity (CPUs 0-3) and watermark scale factor (improves gaming stability and prevents aggressive LMK oom_reaper)
 
 ## Ki-kernel v1.6 :

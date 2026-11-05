@@ -18,6 +18,8 @@
 
 ## Ki-kernel v1.6.1 Beta (Initial Alioth Port)
 
+- Samsung E4 AMOLED late cleanup safeguard: protected display power rails from being disabled at late boot
+- Fixed AnyKernel3 Universal installer: proper directory binding for multi-ROM detection
 - fast charging
 - Added universal AnyKernel3 multi-ROM detection
 - Integrated KernelSU, SuSFS v2.3.0 inline hooks, and NoMount
