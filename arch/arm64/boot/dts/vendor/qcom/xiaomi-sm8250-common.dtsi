@@ -105,7 +105,8 @@
 		regulator-name = "disp_vddio_vreg";
 		/*startup-delay-us = <4000>;*/
 		enable-active-high;
-		/*regulator-boot-on*/
+		regulator-boot-on;
+		regulator-always-on;
 		gpio = <&tlmm 69 0>;
 	 };
 
