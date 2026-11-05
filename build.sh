@@ -313,8 +313,10 @@ rm -rf include/config include/generated arch/*/include/generated .config 2>/dev/
 rm -rf build_artifacts 2>/dev/null || true
 mkdir -p build_artifacts/aosp build_artifacts/miui
 
-echo "Cloning AnyKernel3..."
-git clone https://github.com/AstideLabs/AnyKernel3 -b kona --single-branch --depth=1 anykernel
+echo "Setting up AnyKernel3..."
+git clone https://github.com/liyafe1997/AnyKernel3 -b kona --single-branch --depth=1 anykernel || \
+git clone https://github.com/osm0sis/AnyKernel3 -b master --single-branch --depth=1 anykernel || \
+(cp -r ../AnyKernel3 anykernel && rm -f anykernel/MUNCH-* anykernel/*.zip 2>/dev/null || true)
 
 local_version_date_str="-${KERNEL_NAME}-${KERNEL_VERSION}"
 sed -i "s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"${local_version_date_str}\"/" arch/arm64/configs/${TARGET_DEVICE}_defconfig
