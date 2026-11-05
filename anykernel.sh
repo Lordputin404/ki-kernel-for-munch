@@ -24,11 +24,15 @@ supported.vendorpatchlevels=
 
 ### AnyKernel install
 BLOCK=/dev/block/bootdevice/by-name/boot;
+block=/dev/block/bootdevice/by-name/boot;
 IS_SLOT_DEVICE=auto;
+is_slot_device=auto;
 RAMDISK_COMPRESSION=auto;
+ramdisk_compression=auto;
 PATCH_VBMETA_FLAG=auto;
 patch_vbmeta_flag=auto;
 NO_BLOCK_DISPLAY=1;
+no_block_display=1;
 
 . tools/ak3-core.sh;
 
