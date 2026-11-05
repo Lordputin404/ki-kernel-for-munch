@@ -32,6 +32,10 @@ NO_BLOCK_DISPLAY=1;
 
 . tools/ak3-core.sh;
 
+# Setup home directory for AnyKernel3
+AKHOME="${AKHOME:-${home:-$PWD}}";
+home="$AKHOME";
+
 ui_print " ";
 ui_print "  ===========================================";
 ui_print "  |          Ki-Kernel v1.6 | munch         |";

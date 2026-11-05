@@ -32,6 +32,10 @@ NO_BLOCK_DISPLAY=1;
 
 . tools/ak3-core.sh;
 
+# Setup home directory for AnyKernel3
+AKHOME="${AKHOME:-${home:-$PWD}}";
+home="$AKHOME";
+
 ui_print " ";
 ui_print "  ===========================================";
 ui_print "  |          Ki-Kernel v1.6 | munch         |";
@@ -221,7 +225,13 @@ if [ -f "$AKHOME/kernels/miui/Image" ] && [ -f "$AKHOME/kernels/aosp/Image" ]; t
         if [ "$IS_OPLUS" -eq 0 ]; then
             FEATURE_FILES="/s_chk/system/etc/device_features/munch.xml /s_chk/etc/device_features/munch.xml \
                            /system_root/system/etc/device_features/munch.xml /system/etc/device_features/munch.xml \
-                           /p_chk/etc/device_features/munch.xml /product/etc/device_features/munch.xml";
+                           /p_chk/etc/device_features/munch.xml /product/etc/device_features/munch.xml \
+                           /s_chk/system/etc/device_features/alioth.xml /s_chk/etc/device_features/alioth.xml \
+                           /system_root/system/etc/device_features/alioth.xml /system/etc/device_features/alioth.xml \
+                           /p_chk/etc/device_features/alioth.xml /product/etc/device_features/alioth.xml \
+                           /s_chk/system/etc/device_features/aliothin.xml /s_chk/etc/device_features/aliothin.xml \
+                           /system_root/system/etc/device_features/aliothin.xml /system/etc/device_features/aliothin.xml \
+                           /p_chk/etc/device_features/aliothin.xml /product/etc/device_features/aliothin.xml";
             for f in $FEATURE_FILES; do
                 if [ -f "$f" ]; then
                     IS_MIUI=1;
