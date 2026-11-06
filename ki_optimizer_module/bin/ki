@@ -50,7 +50,6 @@ apply_config() {
         local throt=$(grep -E "^THERMAL_THROTTLE=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local dyn_fsync=$(grep -E "^DYNAMIC_FSYNC=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local tcp=$(grep -E "^TCP_CONGESTION=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
-        local swap=$(grep -E "^SWAPPINESS=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local vfs=$(grep -E "^VFS_CACHE_PRESSURE=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
         local sched=$(grep -E "^IO_SCHEDULER=" "$conf" | head -n 1 | cut -d'=' -f2 | tr -d ' "\r')
 
@@ -60,7 +59,7 @@ apply_config() {
         [ -n "$s_fc" ] && echo "$s_fc" > /sys/kernel/fast_charge/screen_on_fast_charge 2>/dev/null
         [ -n "$f_fc" ] && echo "$f_fc" > /sys/kernel/fast_charge/force_fast_charge 2>/dev/null
         [ -n "$s_bat" ] && echo "$s_bat" > /sys/kernel/ki_profile/screen_off_battery 2>/dev/null
-        [ -n "$throt" ] && echo "$throt" > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
+        [ -n "$throt" ] && set_thermal "$throt" silent
         if [ -n "$dyn_fsync" ]; then
             echo "$dyn_fsync" > /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null
             echo "$dyn_fsync" > /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null
@@ -71,7 +70,7 @@ apply_config() {
             echo "$wl" > /sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker 2>/dev/null
         fi
         [ -n "$tcp" ] && echo "$tcp" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
-        [ -n "$swap" ] && echo "$swap" > /proc/sys/vm/swappiness 2>/dev/null
+        # Swappiness left at ROM/kernel default as requested
         [ -n "$vfs" ] && echo "$vfs" > /proc/sys/vm/vfs_cache_pressure 2>/dev/null
         if [ -n "$sched" ]; then
             for q in /sys/block/sd*/queue/scheduler /sys/block/mmcblk*/queue/scheduler; do
@@ -113,17 +112,20 @@ set_mglru() {
     if ! verify_kernel; then return 1; fi
     local val="$1"
     local silent="$2"
-    if [ "$val" = "7" ] || [ "$val" = "turbo" ] || [ "$val" = "gaming" ] || [ "$val" = "max" ]; then
+    if [ "$val" = "7" ] || [ "$val" = "turbo" ] || [ "$val" = "gaming" ] || [ "$val" = "max" ] || [ "$val" = "aggressive" ] || [ "$val" = "3" ] || [ "$val" = "0x0003" ] || [ "$val" = "0x0007" ]; then
         echo 1 > /proc/mglru 2>/dev/null
         echo 0x0007 > /sys/kernel/mm/lru_gen/enabled 2>/dev/null
-        [ -z "$silent" ] && echo -e "${G}✔ MGLRU: GAMING TURBO MODE (0x0007 - Core + Page Table Walk + PMD)!${X}"
-    elif [ "$val" = "1" ] || [ "$val" = "on" ] || [ "$val" = "enable" ] || [ "$val" = "standard" ] || [ "$val" = "core" ]; then
+        [ -f "$CONF_PATH" ] && sed -i -E "s/^MGLRU_MODE=.*/MGLRU_MODE=7/" "$CONF_PATH" 2>/dev/null
+        [ -z "$silent" ] && echo -e "${G}✔ MGLRU: AGGRESSIVE / GAMING TURBO (0x0007/0x0003 - Core + Page Table Walk)!${X}"
+    elif [ "$val" = "1" ] || [ "$val" = "on" ] || [ "$val" = "enable" ] || [ "$val" = "standard" ] || [ "$val" = "core" ] || [ "$val" = "0x0001" ]; then
         echo 0x0001 > /proc/mglru 2>/dev/null
         echo 0x0001 > /sys/kernel/mm/lru_gen/enabled 2>/dev/null
+        [ -f "$CONF_PATH" ] && sed -i -E "s/^MGLRU_MODE=.*/MGLRU_MODE=1/" "$CONF_PATH" 2>/dev/null
         [ -z "$silent" ] && echo -e "${G}✔ MGLRU: STANDARD MODE (0x0001 - Core generation)!${X}"
     else
         echo 0 > /proc/mglru 2>/dev/null
         echo 0x0000 > /sys/kernel/mm/lru_gen/enabled 2>/dev/null
+        [ -f "$CONF_PATH" ] && sed -i -E "s/^MGLRU_MODE=.*/MGLRU_MODE=0/" "$CONF_PATH" 2>/dev/null
         [ -z "$silent" ] && echo -e "${Y}✔ MGLRU: DISABLED (Traditional 2-list LRU)${X}"
     fi
 }
@@ -162,40 +164,14 @@ set_thermal() {
     if ! verify_kernel; then return 1; fi
     local val="$1"
     local silent="$2"
-    if [ "$val" = "1" ] || [ "$val" = "on" ] || [ "$val" = "enable" ] || [ "$val" = "arm" ]; then
-        echo 1 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
-        [ -z "$silent" ] && echo -e "${G}✔ Dynamic Thermal Guard: ACTIVATED (Protection Armed)${X}"
-    else
+    if [ "$val" = "0" ] || [ "$val" = "off" ] || [ "$val" = "disable" ] || [ "$val" = "bypass" ]; then
         echo 0 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
-        [ -z "$silent" ] && echo -e "${Y}✔ Dynamic Thermal Guard: BYPASSED (Full Unthrottled Gaming)${X}"
-    fi
-}
-
-set_tcp() {
-    if ! verify_kernel; then return 1; fi
-    local val="$1"
-    local silent="$2"
-    if [ -n "$val" ]; then
-        if echo "$val" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null; then
-            [ -z "$silent" ] && echo -e "${G}✔ TCP Algorithm set to: ${W}$val${X}"
-        else
-            [ -z "$silent" ] && echo -e "${R}✖ Failed to set TCP algorithm to '$val'. Check available: $(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)${X}"
-        fi
-    fi
-}
-
-set_dynfsync() {
-    if ! verify_kernel; then return 1; fi
-    local val="$1"
-    local silent="$2"
-    if [ "$val" = "1" ] || [ "$val" = "on" ] || [ "$val" = "enable" ]; then
-        echo 1 > /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null
-        echo 1 > /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null
-        [ -z "$silent" ] && echo -e "${G}✔ Dynamic Fsync: ACTIVATED${X}"
+        [ -f "$CONF_PATH" ] && sed -i -E "s/^THERMAL_THROTTLE=.*/THERMAL_THROTTLE=0/" "$CONF_PATH" 2>/dev/null
+        [ -z "$silent" ] && echo -e "${Y}✔ Thermal Guard: BYPASS (Gaming unlocked, kernel auto-guard active)!${X}"
     else
-        echo 0 > /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null
-        echo 0 > /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null
-        [ -z "$silent" ] && echo -e "${Y}✔ Dynamic Fsync: DEACTIVATED${X}"
+        echo 1 > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
+        [ -f "$CONF_PATH" ] && sed -i -E "s/^THERMAL_THROTTLE=.*/THERMAL_THROTTLE=1/" "$CONF_PATH" 2>/dev/null
+        [ -z "$silent" ] && echo -e "${G}✔ Thermal Guard: ACTIVE (Normal Thermal Protection)${X}"
     fi
 }
 
@@ -210,7 +186,6 @@ show_status() {
     local cur_fsync=$(cat /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null || echo "0")
     local cur_tcp=$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null || echo "cubic")
     local cur_swap=$(cat /proc/sys/vm/swappiness 2>/dev/null || echo "80")
-    local cur_wl=$(cat /sys/kernel/wakelock_blocker/enabled 2>/dev/null || cat /sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker 2>/dev/null || echo "0")
 
     local p_str="${B}Balanced [1]${X}"
     [ "$cur_p" = "0" ] && p_str="${G}Battery Saver [0]${X}"
@@ -231,11 +206,8 @@ show_status() {
     local fsync_str="${W}OFF${X}"
     [ "$cur_fsync" = "1" ] && fsync_str="${G}ON${X}"
 
-    local throt_str="${G}ARMED${X}"
-    [ "$cur_throt" = "0" ] && throt_str="${Y}BYPASSED (Unthrottled)${X}"
-
-    local wl_str="${W}OFF${X}"
-    [ "$cur_wl" = "1" ] && wl_str="${G}ON${X}"
+    local throt_str="${G}ACTIVE${X}"
+    [ "$cur_throt" = "0" ] && throt_str="${Y}BYPASS (Disabled)${X}"
 
     echo -e "${C}╔════════════════════════════════════════════════════════╗${X}"
     echo -e "${C}║         ${W}KI-KERNEL CONTROLLER & OPTIMIZER${C}               ║${X}"
@@ -245,11 +217,10 @@ show_status() {
     echo -e "${C}────────────────────────────────────────────────────────${X}"
     echo -e " • CPU Profile         : $p_str"
     echo -e " • Multi-Gen LRU       : $mglru_str"
-    echo -e " • Thermal Guard       : $throt_str"
     echo -e " • Bypass Charging     : $bypass_str"
     echo -e " • Fast Charge Max     : $ffc_str"
+    echo -e " • Thermal Guard       : $throt_str"
     echo -e " • Screen-Off Battery  : $sbat_str"
-    echo -e " • Wakelock Blocker    : $wl_str"
     echo -e " • Dynamic Fsync       : $fsync_str"
     echo -e " • TCP Algorithm       : ${W}$cur_tcp${X}"
     echo -e " • zRAM Swappiness     : ${W}$cur_swap${X}"
@@ -267,10 +238,11 @@ interactive_menu() {
         echo -e "  [${C}m${X}] Toggle MGLRU (On/Off)"
         echo -e "  [${C}b${X}] Toggle Bypass Charging (On/Off)"
         echo -e "  [${C}f${X}] Toggle Fast Charge Overdrive (On/Off)"
+        echo -e "  [${C}t${X}] Toggle Thermal Guard (Active/Bypass)"
         echo -e "  [${C}r${X}] Reload from /sdcard/ki_optimizer.conf"
         echo -e "  [${R}q${X}] Exit"
         echo ""
-        echo -n -e "${Y}Select option [0/1/2/m/b/f/r/q]: ${X}"
+        echo -n -e "${Y}Select option [0/1/2/m/b/f/t/r/q]: ${X}"
         read opt
         case "$opt" in
             0) set_profile 0 ;;
@@ -300,6 +272,14 @@ interactive_menu() {
                     set_fastcharge 0
                 else
                     set_fastcharge 1
+                fi
+                ;;
+            t|T)
+                cur_t=$(cat /sys/kernel/ki_profile/thermal_throttle 2>/dev/null || echo "1")
+                if [ "$cur_t" = "0" ]; then
+                    set_thermal 1
+                else
+                    set_thermal 0
                 fi
                 ;;
             r|R) apply_config ;;
@@ -332,6 +312,7 @@ case "$1" in
   "thermal_throttle": $(cat /sys/kernel/ki_profile/thermal_throttle 2>/dev/null || echo 1),
   "screen_off_battery": $(cat /sys/kernel/ki_profile/screen_off_battery 2>/dev/null || echo 0),
   "tcp": "$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null || echo cubic)",
+  "tcp_available": "$(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null)",
   "swappiness": $(cat /proc/sys/vm/swappiness 2>/dev/null || echo 130),
   "battery_pct": $(cat /sys/class/power_supply/battery/capacity 2>/dev/null || echo 0),
   "battery_temp": $(echo $(( $(cat /sys/class/power_supply/battery/temp 2>/dev/null || echo 300) / 10 ))),
@@ -358,14 +339,8 @@ EOF
     fastcharge|fc)
         set_fastcharge "$2"
         ;;
-    throt|thermal|guard)
+    thermal|throt)
         set_thermal "$2"
-        ;;
-    tcp)
-        set_tcp "$2"
-        ;;
-    dynfsync|fsync)
-        set_dynfsync "$2"
         ;;
     reload|apply)
         apply_config
@@ -374,10 +349,12 @@ EOF
         shift
         if command -v ki_daemon >/dev/null 2>&1; then
             ki_daemon "$@"
+        elif [ -x "/data/adb/modules/ki_daemon/bin/ki_daemon" ]; then
+            /data/adb/modules/ki_daemon/bin/ki_daemon "$@"
         elif [ -x "/data/adb/modules/ki_optimizer/bin/ki_daemon" ]; then
             /data/adb/modules/ki_optimizer/bin/ki_daemon "$@"
         else
-            echo "ki_daemon binary not found."
+            echo "ki_daemon is not installed (Ki-Daemon is now a standalone module)."
         fi
         ;;
     help|--help|-h)
@@ -390,9 +367,7 @@ EOF
         echo "  ki mglru [0|1|7]: MGLRU Mode (0=Off, 1=Standard, 7=Gaming Turbo)"
         echo "  ki bypass [1|0]: Enable/Disable Bypass Charging"
         echo "  ki fc [1|0]    : Enable/Disable Fast Charge Overdrive"
-        echo "  ki throt [1|0] : Arm (1) or Bypass (0) Dynamic Thermal Guard"
-        echo "  ki tcp [algo]  : Set TCP algorithm (bbr3, bbr, westwood, cubic)"
-        echo "  ki fsync [1|0] : Enable/Disable Dynamic Fsync"
+        echo "  ki thermal [1|0]: Enable/Bypass Thermal Guard"
         echo "  ki reload      : Apply settings from /sdcard/ki_optimizer.conf"
         echo "  ki daemon status: Show Ki-Daemon Auto Game Turbo status"
         echo "  ki daemon start : Start Ki-Daemon in background"

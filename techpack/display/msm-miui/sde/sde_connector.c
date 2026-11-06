@@ -115,6 +115,18 @@ static int sde_backlight_device_update_status(struct backlight_device *bd)
 	bl_lvl = mult_frac(brightness, display->panel->bl_config.bl_max_level,
 			display->panel->bl_config.brightness_max_level);
 
+	/* Ultra-low brightness dimming curve:
+	 * Android UI minimum slider (typically 0% - 2%) maps to brightness <= 35.
+	 * Force true hardware minimum level 1 at bottom slider for pitch black night use,
+	 * and smoothly curve upwards to normal brightness by level 250.
+	 */
+	if (bl_lvl > 0 && bl_lvl <= 35) {
+		bl_lvl = 1;
+	} else if (bl_lvl > 35 && bl_lvl < 250) {
+		u32 diff = bl_lvl - 35;
+		bl_lvl = 1 + (diff * diff) / 185;
+	}
+
 	if (!bl_lvl && brightness)
 		bl_lvl = 1;
 

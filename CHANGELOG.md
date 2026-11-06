@@ -7,6 +7,14 @@
 
 ---
 
+## Ki-kernel v1.6.3 (Display Brightness Range Calibration & AnyKernel3 GPU OC Flasher) :
+- Ultra-Low Minimum Brightness: Clamped slider (<= 35) to hardware Level 1 with smooth quadratic scaling in SDE connector for comfortable night reading without eye strain
+- Outdoor Max Brightness Boost (Sweet Spot): Increased panel max brightness level from 2047 to 2700 (~650-700 nits, +35% peak brightness) on Samsung E4 AMOLED without excessive thermal or battery drain
+- Fixed AnyKernel3 GPU OC vendor_boot flashing: Exported lowercase `block=vendor_boot` alongside uppercase `BLOCK` to ensure DTB partition is repacked correctly on SM8250
+- Added automated GPU OC trigger support: Flasher now detects `/sdcard/oc`, `/sdcard/Download/oc`, and `/tmp/oc` to automatically select 683 MHz OC + UV profile even in app-based flashers (Kernel Flasher)
+- Updated Ki-Settings / Ki-Optimizer module to v1.4.0 with WebUI charging, profile, and thermal toggles
+- SMB5 charging driver & Boeffla Wakelock Blocker optimizations
+
 ## Ki-kernel v1.6.2 (ColorOS 17 Support, Dynamic Fsync & Thermal Guard Fixes) :
 - Fixed screen-off / lockscreen deadlock: replaced synchronous ksys_sync() in Dynamic Fsync with asynchronous wakeup_flusher_threads() and removed wakelock contention with Android apexd/VFS
 - Fixed Dynamic Thermal Guard toggle: implemented thermal_throttle_store() and made /sys/kernel/ki_profile/thermal_throttle read-write (__ATTR_RW) to allow bypassing thermal throttling for unthrottled gaming

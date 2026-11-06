@@ -19,3 +19,4 @@ cp -f "$RELEASE_DIR1/$ZIP_NAME" "$RELEASE_DIR2/$ZIP_NAME"
 cp -f "$RELEASE_DIR1/$ZIP_NAME" "$RELEASE_DIR2/Ki-Settings.zip"
 
 echo "✔ Built successfully: $RELEASE_DIR1/$ZIP_NAME"
+
