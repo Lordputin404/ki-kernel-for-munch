@@ -282,6 +282,70 @@ static ssize_t devinfo_lcd_s_read(struct file *file, char __user *buf, size_t co
 }
 static const struct file_operations devinfo_lcd_s_fops = { .read = devinfo_lcd_s_read, .write = dummy_sink_write };
 
+static ssize_t devinfo_aboard_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+    return simple_read_from_buffer(buf, count, ppos, "0\n", 2);
+}
+static const struct file_operations devinfo_aboard_fops = { .read = devinfo_aboard_read, .write = dummy_sink_write };
+
+static ssize_t devinfo_ddr_info_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+    return simple_read_from_buffer(buf, count, ppos, "LPDDR5\n", 7);
+}
+static const struct file_operations devinfo_ddr_info_fops = { .read = devinfo_ddr_info_read, .write = dummy_sink_write };
+
+static ssize_t devinfo_ddr_size_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+    return simple_read_from_buffer(buf, count, ppos, "8GB\n", 4);
+}
+static const struct file_operations devinfo_ddr_size_fops = { .read = devinfo_ddr_size_read, .write = dummy_sink_write };
+
+static ssize_t shell_temp_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+    struct power_supply *psy = power_supply_get_by_name("battery");
+    union power_supply_propval val = { 0 };
+    int temp = 320;
+    char str[16];
+    int len;
+
+    if (psy) {
+        if (!power_supply_get_property(psy, POWER_SUPPLY_PROP_TEMP, &val))
+            temp = val.intval;
+        power_supply_put(psy);
+    }
+    len = scnprintf(str, sizeof(str), "%d\n", temp);
+    return simple_read_from_buffer(buf, count, ppos, str, len);
+}
+static ssize_t shell_temp_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
+    return count;
+}
+static const struct file_operations shell_temp_fops = {
+    .read = shell_temp_read,
+    .write = shell_temp_write,
+    .unlocked_ioctl = dummy_sink_ioctl,
+    .compat_ioctl = dummy_sink_ioctl,
+    .llseek = generic_file_llseek,
+};
+
+static ssize_t horae_mode_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+    return simple_read_from_buffer(buf, count, ppos, "0\n", 2);
+}
+static ssize_t horae_mode_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos) {
+    return count;
+}
+static const struct file_operations horae_mode_fops = {
+    .read = horae_mode_read,
+    .write = horae_mode_write,
+    .unlocked_ioctl = dummy_sink_ioctl,
+    .compat_ioctl = dummy_sink_ioctl,
+    .llseek = generic_file_llseek,
+};
+
+static ssize_t opbootfrom_read(struct file *file, char __user *buf, size_t count, loff_t *ppos) {
+    return simple_read_from_buffer(buf, count, ppos, "normal\n", 7);
+}
+static const struct file_operations opbootfrom_fops = {
+    .read = opbootfrom_read,
+    .write = dummy_sink_write,
+    .llseek = generic_file_llseek,
+};
+
 static int batt_health_show(struct seq_file *m, void *v) {
 	struct power_supply *psy;
 	union power_supply_propval val = { 0 };
@@ -763,6 +827,50 @@ static ssize_t charger_wattage_show(struct device *dev, struct device_attribute 
 }
 static DEVICE_ATTR_RO(charger_wattage);
 
+static ssize_t voocchg_ing_show(struct device *dev, struct device_attribute *attr, char *buf) {
+    struct power_supply *psy = power_supply_get_by_name("battery");
+    union power_supply_propval val = { 0 };
+    int charging = 0;
+    if (psy) {
+        if (!power_supply_get_property(psy, POWER_SUPPLY_PROP_STATUS, &val)) {
+            if (val.intval == POWER_SUPPLY_STATUS_CHARGING || val.intval == POWER_SUPPLY_STATUS_FULL)
+                charging = 1;
+        }
+        power_supply_put(psy);
+    }
+    return scnprintf(buf, PAGE_SIZE, "%d\n", charging);
+}
+static DEVICE_ATTR_RO(voocchg_ing);
+
+static ssize_t svoocchg_ing_show(struct device *dev, struct device_attribute *attr, char *buf) {
+    struct power_supply *psy = power_supply_get_by_name("battery");
+    union power_supply_propval val = { 0 };
+    int fast_charging = 0;
+    if (psy) {
+        if (!power_supply_get_property(psy, POWER_SUPPLY_PROP_CHARGE_TYPE, &val)) {
+            if (val.intval == POWER_SUPPLY_CHARGE_TYPE_FAST)
+                fast_charging = 1;
+        }
+        if (!fast_charging && !power_supply_get_property(psy, POWER_SUPPLY_PROP_STATUS, &val)) {
+            if (val.intval == POWER_SUPPLY_STATUS_CHARGING)
+                fast_charging = 1;
+        }
+        power_supply_put(psy);
+    }
+    return scnprintf(buf, PAGE_SIZE, "%d\n", fast_charging);
+}
+static DEVICE_ATTR_RO(svoocchg_ing);
+
+static ssize_t svooc_100w_icon_show(struct device *dev, struct device_attribute *attr, char *buf) {
+    return scnprintf(buf, PAGE_SIZE, "0\n");
+}
+static DEVICE_ATTR_RO(svooc_100w_icon);
+
+static ssize_t adapter_fw_update_show(struct device *dev, struct device_attribute *attr, char *buf) {
+    return scnprintf(buf, PAGE_SIZE, "0\n");
+}
+static DEVICE_ATTR_RO(adapter_fw_update);
+
 static struct attribute *oplus_chg_common_attrs[] = {
 	&dev_attr_protocol_type.attr,
 	&dev_attr_ui_power.attr,
@@ -772,6 +880,11 @@ static struct attribute *oplus_chg_common_attrs[] = {
 	&dev_attr_chg_up_limit.attr,
     &dev_attr_mutual_cmd.attr,
     &dev_attr_charger_wattage.attr,
+    &dev_attr_voocchg_ing.attr,
+    &dev_attr_svoocchg_ing.attr,
+    &dev_attr_svooc_100w_icon.attr,
+    &dev_attr_adapter_fw_update.attr,
+    &dev_attr_fast_chg_type.attr,
 	NULL,
 };
 static const struct attribute_group oplus_chg_common_group = {
@@ -944,6 +1057,9 @@ static int __init oplus_stub_nodes_init(void) {
     int rc;
 
     set_proc_owner(proc_create("bootprof", 0666, NULL, &dummy_sink_fops));
+    set_proc_owner(proc_create("opbootfrom", 0444, NULL, &opbootfrom_fops));
+    set_proc_owner(proc_create("shell-temp", 0666, NULL, &shell_temp_fops));
+    set_proc_owner(proc_create("horae_mode", 0666, NULL, &horae_mode_fops));
     set_proc_owner(proc_create("theiaPwkReport", 0666, NULL, &dummy_sink_fops));
 
     /* Theia application hang detection event reporting */
@@ -1061,6 +1177,9 @@ static int __init oplus_stub_nodes_init(void) {
         set_proc_owner(devinfo);
         set_proc_owner(proc_create("lcd", 0666, devinfo, &devinfo_lcd_fops));
         set_proc_owner(proc_create("lcd_s", 0666, devinfo, &devinfo_lcd_s_fops));
+        set_proc_owner(proc_create("aboard", 0444, devinfo, &devinfo_aboard_fops));
+        set_proc_owner(proc_create("ddr_info", 0444, devinfo, &devinfo_ddr_info_fops));
+        set_proc_owner(proc_create("ddr_size", 0444, devinfo, &devinfo_ddr_size_fops));
     }
 
     charger_dir = proc_mkdir("oplus_charger", NULL);
