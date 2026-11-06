@@ -10,6 +10,9 @@
 ## Ki-kernel v1.6.2 (ColorOS 17 Support & Installer Bulletproofing) :
 - **ColorOS 17 Display Subsystem:** Implemented `/sys/kernel/oplus_display/` (with `/sys/kernel/oppo_display` symlink) providing `adfr`, `dimlayer_bl_en`, `dimlayer_hbm`, `seed`, `hbm`, `oplus_notify_fppress`, `power_status`, `panel_serial_number`, `dynamic_osc_clock`, `aod_light_mode_set`, `panel_pwr`, and `dsi_cmd` to support ColorOS 17 Luminous Rendering engine without SurfaceFlinger hangs.
 - **ColorOS 17 Background Freezer:** Added `/proc/oplus_hans/` (`hans_ctrl`, `hans_type`, `hans_stat`, `pkg_list`) interface to eliminate Hans v5 system server ANRs and lockups.
+- **ColorOS 17 Horae Thermal Engine:** Added `/proc/shell-temp` (dynamically reporting battery shell thermals) and `/proc/horae_mode` to prevent thermal daemon throttling and false overheat warnings.
+- **ColorOS SuperVOOC UI Charging Nodes:** Registered `voocchg_ing`, `svoocchg_ing`, `svooc_100w_icon`, and `adapter_fw_update` in `/sys/class/oplus_chg/` alongside dynamic `fast_chg_type` for authentic charging animations.
+- **Device Info & Bootprof:** Added `/proc/opbootfrom` and `/proc/devinfo/` (`aboard`, `ddr_info`, `ddr_size`).
 - **SchedAssist v3 & Frame Boost:** Expanded `/proc/oplus_scheduler/sched_assist/` (`opt_enable`, `frame_boost`, `sf_target_time`, `inherit_ux`, `heavy_task`, `sched_fbg_opt`, `fbg_slide_opt`, `fbg_camera_opt`, `fbg_anim_opt`, `sched_assist_v2`) and `/proc/oplus_frame_boost/` (`fbg_ctrl`, `fbg_fps`, `fbg_level`, `fbg_pid`, `fbg_render_pid`, `fbg_mode`, `fbg_scene`).
 - **OPlus Theia & GameOpt:** Added `/proc/theia/theia_send_event` watchdog reporter and `/proc/game_opt/` (`render_thread`, `game_pid`, `cpu_load`, `target_fps`).
 - **OPlus Charger & Gauge:** Registered `/sys/class/oplus_chg/` wireless and gauge sysfs device groups (`chip_ok`, `soh`) and added `/proc/oplus_charger/` battery metrics (`battery_temp`, `ui_soc`, `charge_technology`, `gauge_fw_ver`).
