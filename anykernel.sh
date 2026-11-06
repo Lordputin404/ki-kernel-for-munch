@@ -36,9 +36,23 @@ no_block_display=1;
 
 . tools/ak3-core.sh;
 
-# Setup home directory for AnyKernel3
-AKHOME="${AKHOME:-${home:-$PWD}}";
+# Setup home directory for AnyKernel3 (hardened against empty/unexported variables)
+if [ -z "$AKHOME" ] || [ ! -d "$AKHOME" ]; then
+    SCRIPT_DIR="$(dirname "$0" 2>/dev/null)";
+    if [ -n "$SCRIPT_DIR" ] && [ -f "$SCRIPT_DIR/anykernel.sh" ]; then
+        AKHOME="$(cd "$SCRIPT_DIR" 2>/dev/null && pwd)";
+    elif [ -n "$home" ] && [ -f "$home/anykernel.sh" ]; then
+        AKHOME="$home";
+    elif [ -f "$PWD/anykernel.sh" ]; then
+        AKHOME="$PWD";
+    elif [ -d "/tmp/anykernel" ] && [ -f "/tmp/anykernel/anykernel.sh" ]; then
+        AKHOME="/tmp/anykernel";
+    else
+        AKHOME="${home:-$PWD}";
+    fi;
+fi;
 home="$AKHOME";
+export AKHOME;
 
 ui_print " ";
 ui_print "  ===========================================";
@@ -80,6 +94,7 @@ if [ -f "$AKHOME/kernels/miui/Image" ] && [ -f "$AKHOME/kernels/aosp/Image" ]; t
             [ -z "$OPLUS_PROP" ] && OPLUS_PROP=$(getprop ro.build.version.opporom 2>/dev/null);
             [ -z "$OPLUS_PROP" ] && OPLUS_PROP=$(getprop ro.realme.version 2>/dev/null);
             [ -z "$OPLUS_PROP" ] && OPLUS_PROP=$(getprop ro.oplus.image.my_product.version 2>/dev/null);
+            [ -z "$OPLUS_PROP" ] && OPLUS_PROP=$(getprop ro.oplus.image.my_manifest.version 2>/dev/null);
             [ -z "$OPLUS_PROP" ] && OPLUS_PROP=$(getprop ro.build.oplus_version 2>/dev/null);
 
             BRAND=$(getprop ro.product.system.brand 2>/dev/null);
