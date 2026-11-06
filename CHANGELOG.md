@@ -11,7 +11,6 @@
 - Fixed screen-off / lockscreen deadlock: replaced synchronous ksys_sync() in Dynamic Fsync with asynchronous wakeup_flusher_threads() and removed wakelock contention with Android apexd/VFS
 - Fixed Dynamic Thermal Guard toggle: implemented thermal_throttle_store() and made /sys/kernel/ki_profile/thermal_throttle read-write (__ATTR_RW) to allow bypassing thermal throttling for unthrottled gaming
 - Fixed TCP Congestion Control switcher: enabled CONFIG_TCP_CONG_CUBIC and registered both "westwood" and "westwood-sub"
-- Synced Ki-Settings (v1.4): real-time switch auto-apply, instant feedback, and dynamic tcp_available_congestion_control detection
 - Added ColorOS 17 oplus_display sysfs nodes for Luminous Rendering Engine
 - Added ColorOS 17 oplus_hans procfs interface to fix system_server ANRs
 - Added Horae thermal procfs nodes (shell-temp, horae_mode) to prevent false throttling
