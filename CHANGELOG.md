@@ -17,6 +17,9 @@
 - Synced KernelSU / BakaSU upstream to latest main (516d3e87) with OriginOS panic prevention (vklp_smaps_rollup block) and preserved multi-manager support
 - Backported Linux 5.4 PM runtime & sleep fixes: resolved force_suspend/resume refcount unbalance, device removal UAF, and wakeirq races to eliminate screen-off wake deadlocks
 - Fixed scheduler PELT period truncation: upgraded period accumulation from u32 to u64 to prevent CPU load tracking freezes
+- Hardened Adreno GPU (KGSL): added refcount zero bailout in vm_open and fixed repeated sparse page mapping indices to prevent game crashes (PUBG/Genshin) and texture buffer corruption
+- Power Management & Deep Sleep: offloaded pm_wq to WQ_UNBOUND, synced Android wakeup_srcu, hardened sleep_time delta calculations, and fixed wakelock counter limits
+- Optimized kernel workqueues: reduced pool lock contention in flush_workqueue_prep_pwqs for unbound workqueues and guarded against NULL current_pwq dereferences
 
 ## Ki-kernel v1.6.2 (ColorOS 17 Support, Dynamic Fsync & Thermal Guard Fixes) :
 - Fixed screen-off / lockscreen deadlock: replaced synchronous ksys_sync() in Dynamic Fsync with asynchronous wakeup_flusher_threads() and removed wakelock contention with Android apexd/VFS
