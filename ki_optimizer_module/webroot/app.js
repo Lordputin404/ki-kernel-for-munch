@@ -398,7 +398,8 @@ async function refreshState() {
       fi
 
       VAL_SWAP="$(cat /proc/sys/vm/swappiness 2>/dev/null || echo '130')"
-      VAL_TCP="$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null || echo 'cubic')"
+      VAL_TCP="$(cat /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null || echo 'bbr')"
+      VAL_TCP_AVAIL="$(cat /proc/sys/net/ipv4/tcp_available_congestion_control 2>/dev/null || echo 'bbr bbr3 westwood westwood-sub cubic')"
 
       echo "IS_KI=$IS_KI"
       echo "KERNEL=$KERNEL"
@@ -422,6 +423,7 @@ async function refreshState() {
       echo "VAL_THERMAL=$VAL_THERMAL"
       echo "VAL_SWAP=$VAL_SWAP"
       echo "VAL_TCP=$VAL_TCP"
+      echo "VAL_TCP_AVAIL=$VAL_TCP_AVAIL"
     `);
 
     const props = {};
@@ -472,9 +474,31 @@ async function refreshState() {
       if (valSwappiness) valSwappiness.textContent = props["VAL_SWAP"];
     }
 
-    if (selectTcp && props["VAL_TCP"]) {
-      selectTcp.value = props["VAL_TCP"];
-      if (badgeTcp) badgeTcp.textContent = props["VAL_TCP"];
+    if (selectTcp) {
+      if (props["VAL_TCP_AVAIL"]) {
+        const avail = props["VAL_TCP_AVAIL"].trim().split(/\s+/).filter(Boolean);
+        if (avail.length > 0) {
+          const currentVal = props["VAL_TCP"] || selectTcp.value;
+          selectTcp.innerHTML = "";
+          avail.forEach(algo => {
+            const opt = document.createElement("option");
+            opt.value = algo;
+            let desc = algo;
+            if (algo === "bbr3") desc = "bbr3 (Google BBRv3)";
+            else if (algo === "bbr") desc = "bbr (Google BBRv1)";
+            else if (algo === "westwood") desc = "westwood (Loss-Tolerant)";
+            else if (algo === "westwood-sub") desc = "westwood-sub (Loss-Tolerant)";
+            else if (algo === "cubic") desc = "cubic (Standard)";
+            opt.textContent = desc;
+            selectTcp.appendChild(opt);
+          });
+          if (currentVal) selectTcp.value = currentVal;
+        }
+      }
+      if (props["VAL_TCP"]) {
+        selectTcp.value = props["VAL_TCP"];
+        if (badgeTcp) badgeTcp.textContent = props["VAL_TCP"];
+      }
     }
 
     refreshDaemonState();
@@ -786,51 +810,147 @@ rangeSwappiness?.addEventListener("input", (e) => {
   if (valSwappiness) valSwappiness.textContent = e.target.value;
 });
 
-// Optimistic Switch Status Badge Updates
-toggleBypass?.addEventListener("change", (e) => {
+// Real-time Switch Status Updates & Auto-Apply
+toggleBypass?.addEventListener("change", async (e) => {
+  const enabled = e.target.checked ? 1 : 0;
   if (badgeBypass) {
-    badgeBypass.textContent = e.target.checked ? "Active" : "Off";
-    badgeBypass.classList.toggle("is-off", !e.target.checked);
+    badgeBypass.textContent = enabled ? "Active" : "Off";
+    badgeBypass.classList.toggle("is-off", !enabled);
+  }
+  try {
+    await exec(`
+      echo ${enabled} > /proc/bypass_charging 2>/dev/null
+      echo ${enabled} > /sys/class/power_supply/battery/bypass_charging 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^BYPASS_CHARGING=.*/BYPASS_CHARGING=${enabled}/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(enabled ? "Bypass Charging Activated" : "Bypass Charging Deactivated");
+  } catch (err) {
+    showToast("Failed to toggle bypass charging", true);
   }
 });
 
-toggleFastCharge?.addEventListener("change", (e) => {
+toggleFastCharge?.addEventListener("change", async (e) => {
+  const enabled = e.target.checked ? 1 : 0;
   if (badgeFastCharge) {
-    badgeFastCharge.textContent = e.target.checked ? "Active" : "Off";
-    badgeFastCharge.classList.toggle("is-off", !e.target.checked);
+    badgeFastCharge.textContent = enabled ? "Active" : "Off";
+    badgeFastCharge.classList.toggle("is-off", !enabled);
+  }
+  try {
+    await exec(`
+      echo ${enabled} > /sys/kernel/fast_charge/force_fast_charge 2>/dev/null
+      echo ${enabled} > /sys/kernel/fast_charge/screen_on_fast_charge 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^FORCE_FAST_CHARGE=.*/FORCE_FAST_CHARGE=${enabled}/" "$CONF" 2>/dev/null
+        sed -i -E "s/^SCREEN_ON_FAST_CHARGE=.*/SCREEN_ON_FAST_CHARGE=${enabled}/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(enabled ? "Fast Charge Overdrive Activated" : "Fast Charge Overdrive Deactivated");
+  } catch (err) {
+    showToast("Failed to toggle fast charge", true);
   }
 });
 
-toggleScreenOff?.addEventListener("change", (e) => {
+toggleScreenOff?.addEventListener("change", async (e) => {
+  const enabled = e.target.checked ? 1 : 0;
   if (badgeScreenOff) {
-    badgeScreenOff.textContent = e.target.checked ? "Active" : "Off";
-    badgeScreenOff.classList.toggle("is-off", !e.target.checked);
+    badgeScreenOff.textContent = enabled ? "Active" : "Off";
+    badgeScreenOff.classList.toggle("is-off", !enabled);
+  }
+  try {
+    await exec(`
+      echo ${enabled} > /sys/kernel/ki_profile/screen_off_battery 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^SCREEN_OFF_BATTERY=.*/SCREEN_OFF_BATTERY=${enabled}/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(enabled ? "Screen-off Eco Activated" : "Screen-off Eco Deactivated");
+  } catch (err) {
+    showToast("Failed to toggle screen-off eco", true);
   }
 });
 
-toggleWakelock?.addEventListener("change", (e) => {
+toggleWakelock?.addEventListener("change", async (e) => {
+  const enabled = e.target.checked ? 1 : 0;
   if (badgeWakelock) {
-    badgeWakelock.textContent = e.target.checked ? "Active" : "Off";
-    badgeWakelock.classList.toggle("is-off", !e.target.checked);
+    badgeWakelock.textContent = enabled ? "Active" : "Off";
+    badgeWakelock.classList.toggle("is-off", !enabled);
+  }
+  try {
+    await exec(`
+      echo ${enabled} > /sys/kernel/wakelock_blocker/enabled 2>/dev/null
+      echo ${enabled} > /sys/devices/virtual/misc/boeffla_wakelock_blocker/wakelock_blocker 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^WAKELOCK_BLOCKER=.*/WAKELOCK_BLOCKER=${enabled}/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(enabled ? "Wakelock Blocker Activated" : "Wakelock Blocker Deactivated");
+  } catch (err) {
+    showToast("Failed to toggle wakelock blocker", true);
   }
 });
 
-toggleDynFsync?.addEventListener("change", (e) => {
+toggleDynFsync?.addEventListener("change", async (e) => {
+  const enabled = e.target.checked ? 1 : 0;
   if (badgeDynFsync) {
-    badgeDynFsync.textContent = e.target.checked ? "Active" : "Off";
-    badgeDynFsync.classList.toggle("is-off", !e.target.checked);
+    badgeDynFsync.textContent = enabled ? "Active" : "Off";
+    badgeDynFsync.classList.toggle("is-off", !enabled);
+  }
+  try {
+    await exec(`
+      echo ${enabled} > /sys/kernel/dyn_fsync/Dyn_fsync_active 2>/dev/null
+      echo ${enabled} > /sys/kernel/dyn_fsync/dyn_fsync_active 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^DYNAMIC_FSYNC=.*/DYNAMIC_FSYNC=${enabled}/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(enabled ? "Dynamic Fsync Activated" : "Dynamic Fsync Deactivated");
+  } catch (err) {
+    showToast("Failed to toggle Dynamic Fsync", true);
   }
 });
 
-toggleThermal?.addEventListener("change", (e) => {
+toggleThermal?.addEventListener("change", async (e) => {
+  const enabled = e.target.checked ? 1 : 0;
   if (badgeThermal) {
-    badgeThermal.textContent = e.target.checked ? "Active" : "Bypass";
-    badgeThermal.classList.toggle("is-off", !e.target.checked);
+    badgeThermal.textContent = enabled ? "Active" : "Bypass";
+    badgeThermal.classList.toggle("is-off", !enabled);
+  }
+  try {
+    await exec(`
+      echo ${enabled} > /sys/kernel/ki_profile/thermal_throttle 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^THERMAL_THROTTLE=.*/THERMAL_THROTTLE=${enabled}/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(enabled ? "Dynamic Thermal Guard Activated" : "Thermal Guard Bypassed (Full Gaming Unthrottled)");
+  } catch (err) {
+    showToast("Failed to toggle thermal guard", true);
   }
 });
 
-selectTcp?.addEventListener("change", (e) => {
-  if (badgeTcp) badgeTcp.textContent = e.target.value;
+selectTcp?.addEventListener("change", async (e) => {
+  const algo = e.target.value;
+  if (badgeTcp) badgeTcp.textContent = algo;
+  try {
+    await exec(`
+      echo "${algo}" > /proc/sys/net/ipv4/tcp_congestion_control 2>/dev/null
+      CONF="/sdcard/ki_optimizer.conf"
+      if [ -f "$CONF" ]; then
+        sed -i -E "s/^TCP_CONGESTION=.*/TCP_CONGESTION=\\"${algo}\\"/" "$CONF" 2>/dev/null
+      fi
+    `);
+    showToast(`TCP algorithm set to ${algo}`);
+  } catch (err) {
+    showToast("Failed to set TCP algorithm", true);
+  }
 });
 
 btnApply?.addEventListener("click", () => {

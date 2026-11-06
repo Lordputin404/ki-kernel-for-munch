@@ -53,6 +53,7 @@ EXPORT_SYMBOL_GPL(ki_get_active_profile);
  */
 #define KI_SCREEN_OFF_DELAY_MS	5000
 static bool ki_screen_off_battery = false;
+static int ki_user_thermal_throttle = -1; /* -1 = follow profile, 0 = disabled, 1 = enabled */
 static bool ki_screen_on = true;
 static bool ki_battery_armed;
 static struct delayed_work ki_screen_work;
@@ -468,8 +469,12 @@ static int apply_ki_profile(int mode, bool force)
 	/*
 	 * Re-arm thermal throttling whenever screen is off, even in Performance mode,
 	 * to prevent overheating in pockets and avoid running guard highpri polls in idle.
+	 * When screen is on, respect user override if set via sysfs.
 	 */
-	enable_thermal_throttle = t->thermal_throttle || !screen_on;
+	if (READ_ONCE(ki_user_thermal_throttle) >= 0)
+		enable_thermal_throttle = (READ_ONCE(ki_user_thermal_throttle) != 0) || !screen_on;
+	else
+		enable_thermal_throttle = t->thermal_throttle || !screen_on;
 
 	/* Atomic thermal & active mode state switch under spinlock */
 	spin_lock_irqsave(&ki_guard_lock, flags);
@@ -796,6 +801,45 @@ static ssize_t thermal_throttle_show(struct kobject *kobj, struct kobj_attribute
 	return scnprintf(buf, PAGE_SIZE, "%d\n", READ_ONCE(ki_thermal_throttle_enabled) ? 1 : 0);
 }
 
+static ssize_t thermal_throttle_store(struct kobject *kobj, struct kobj_attribute *attr,
+				      const char *buf, size_t count)
+{
+	bool val;
+	int ret;
+	unsigned long flags;
+	bool screen_on;
+
+	ret = kstrtobool(buf, &val);
+	if (ret)
+		return ret;
+
+	mutex_lock(&ki_profile_mutex);
+	WRITE_ONCE(ki_user_thermal_throttle, val ? 1 : 0);
+	screen_on = READ_ONCE(ki_screen_on);
+
+	spin_lock_irqsave(&ki_guard_lock, flags);
+	if (!screen_on) {
+		/* Keep thermal throttle armed while screen is off for pocket safety */
+		WRITE_ONCE(ki_thermal_throttle_enabled, true);
+	} else {
+		WRITE_ONCE(ki_thermal_throttle_enabled, val);
+	}
+	ki_guard_tripped = false;
+	ki_guard_parked = false;
+	spin_unlock_irqrestore(&ki_guard_lock, flags);
+
+	if (screen_on && !val)
+		mod_delayed_work(system_highpri_wq, &ki_guard_work, 0);
+	else
+		cancel_delayed_work(&ki_guard_work);
+
+	mutex_unlock(&ki_profile_mutex);
+
+	pr_info("ki_profile: thermal_throttle user set to %d (active=%d)\n",
+		val ? 1 : 0, READ_ONCE(ki_thermal_throttle_enabled));
+	return count;
+}
+
 static ssize_t ki_max_freq_store(int i, const char *buf, size_t count)
 {
 	unsigned int val;
@@ -853,7 +897,7 @@ static ssize_t max_freq_prime_store(struct kobject *kobj, struct kobj_attribute 
 static struct kobj_attribute mode_attr = __ATTR_RW(mode);
 static struct kobj_attribute current_profile_attr = __ATTR_RO(current_profile);
 static struct kobj_attribute available_modes_attr = __ATTR_RO(available_modes);
-static struct kobj_attribute thermal_throttle_attr = __ATTR_RO(thermal_throttle);
+static struct kobj_attribute thermal_throttle_attr = __ATTR_RW(thermal_throttle);
 static struct kobj_attribute active_profile_attr = __ATTR_RO(active_profile);
 static struct kobj_attribute screen_off_battery_attr = __ATTR_RW(screen_off_battery);
 static struct kobj_attribute max_freq_silver_attr = __ATTR_RW(max_freq_silver);
