@@ -1,11 +1,21 @@
 # Ki-kernel for POCO F4 / Redmi K40S (munch)
 
-**Build Date:** 2026-11-05  
+**Build Date:** 2026-11-06  
 **Kernel Version:** Linux 4.19.325  
 **Variant:** MIUI/HyperOS, AOSP, And ColorOS/OxygenOS (Universal & Single Variants)  
 **Toolchain:** ZyCromerZ Clang 16.0.6 (LLVM 16.0.6 + GNU Binutils 2.47)  
 
 ---
+
+## Ki-kernel v1.6.2 (ColorOS 17 Support & Installer Bulletproofing) :
+- **ColorOS 17 Display Subsystem:** Implemented `/sys/kernel/oplus_display/` (with `/sys/kernel/oppo_display` symlink) providing `adfr`, `dimlayer_bl_en`, `dimlayer_hbm`, `seed`, `hbm`, `oplus_notify_fppress`, `power_status`, `panel_serial_number`, `dynamic_osc_clock`, `aod_light_mode_set`, `panel_pwr`, and `dsi_cmd` to support ColorOS 17 Luminous Rendering engine without SurfaceFlinger hangs.
+- **ColorOS 17 Background Freezer:** Added `/proc/oplus_hans/` (`hans_ctrl`, `hans_type`, `hans_stat`, `pkg_list`) interface to eliminate Hans v5 system server ANRs and lockups.
+- **SchedAssist v3 & Frame Boost:** Expanded `/proc/oplus_scheduler/sched_assist/` (`opt_enable`, `frame_boost`, `sf_target_time`, `inherit_ux`, `heavy_task`, `sched_fbg_opt`, `fbg_slide_opt`, `fbg_camera_opt`, `fbg_anim_opt`, `sched_assist_v2`) and `/proc/oplus_frame_boost/` (`fbg_ctrl`, `fbg_fps`, `fbg_level`, `fbg_pid`, `fbg_render_pid`, `fbg_mode`, `fbg_scene`).
+- **OPlus Theia & GameOpt:** Added `/proc/theia/theia_send_event` watchdog reporter and `/proc/game_opt/` (`render_thread`, `game_pid`, `cpu_load`, `target_fps`).
+- **OPlus Charger & Gauge:** Registered `/sys/class/oplus_chg/` wireless and gauge sysfs device groups (`chip_ok`, `soh`) and added `/proc/oplus_charger/` battery metrics (`battery_temp`, `ui_soc`, `charge_technology`, `gauge_fw_ver`).
+- **AnyKernel3 Partition Resolution:** Fixed `"Unable to determine boot partition. Aborting..."` error when flashing via root apps (Kernel Flasher / FKM) on Virtual A/B by adding multi-layer slot detection fallback (`/proc/mounts`, `/proc/self/mountinfo`, and direct block device scans) and broadening path resolution to include `/dev/block/mapper/` and wildcards.
+- **AnyKernel3 Environment Hardening:** Fixed empty `$AKHOME` directory evaluation during third-party app installations and synchronized dual-case variables (`BLOCK`/`block`, `IS_SLOT_DEVICE`/`is_slot_device`).
+- **ROM Auto-Detection:** Added `ro.oplus.image.my_manifest.version` to OPlus ROM fingerprint scanner.
 
 ## Ki-kernel v1.6.1 :
 - Fixed Samsung E4 AMOLED black screen bug: permanently protected display power rails (`display_panel_vci`, `disp_vddio_vreg`, `oled_dvdd_ldo`) from being cut off at second 32 by `regulator_late_cleanup`, completely eliminating hard reboots
