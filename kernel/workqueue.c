@@ -1366,7 +1366,7 @@ static bool is_chained_work(struct workqueue_struct *wq)
 	 * Return %true iff I'm a worker execuing a work item on @wq.  If
 	 * I'm @worker, it's safe to dereference it without locking.
 	 */
-	return worker && worker->current_pwq->wq == wq;
+	return worker && worker->current_pwq && worker->current_pwq->wq == wq;
 }
 
 /*
@@ -2531,7 +2531,7 @@ static void check_flush_dependency(struct workqueue_struct *target_wq,
 	WARN_ONCE(current->flags & PF_MEMALLOC,
 		  "workqueue: PF_MEMALLOC task %d(%s) is flushing !WQ_MEM_RECLAIM %s:%pf",
 		  current->pid, current->comm, target_wq->name, target_func);
-	WARN_ONCE(worker && ((worker->current_pwq->wq->flags &
+	WARN_ONCE(worker && worker->current_pwq && ((worker->current_pwq->wq->flags &
 			      (WQ_MEM_RECLAIM | __WQ_LEGACY)) == WQ_MEM_RECLAIM),
 		  "workqueue: WQ_MEM_RECLAIM %s:%pf is flushing !WQ_MEM_RECLAIM %s:%pf",
 		  worker->current_pwq->wq->name, worker->current_func,
@@ -2650,16 +2650,28 @@ static bool flush_workqueue_prep_pwqs(struct workqueue_struct *wq,
 {
 	bool wait = false;
 	struct pool_workqueue *pwq;
+	struct worker_pool *current_pool = NULL;
 
 	if (flush_color >= 0) {
 		WARN_ON_ONCE(atomic_read(&wq->nr_pwqs_to_flush));
 		atomic_set(&wq->nr_pwqs_to_flush, 1);
 	}
 
+	/*
+	 * For unbound workqueue, pwqs will map to only a few pools.
+	 * Most of the time, pwqs within the same pool will be linked
+	 * sequentially to wq->pwqs by cpu index. So in the majority
+	 * of pwq iters, the pool is the same, only doing lock/unlock
+	 * if the pool has changed. This can largely reduce expensive
+	 * lock operations.
+	 */
 	for_each_pwq(pwq, wq) {
-		struct worker_pool *pool = pwq->pool;
-
-		spin_lock_irq(&pool->lock);
+		if (current_pool != pwq->pool) {
+			if (likely(current_pool))
+				spin_unlock_irq(&current_pool->lock);
+			current_pool = pwq->pool;
+			spin_lock_irq(&current_pool->lock);
+		}
 
 		if (flush_color >= 0) {
 			WARN_ON_ONCE(pwq->flush_color != -1);
@@ -2675,9 +2687,10 @@ static bool flush_workqueue_prep_pwqs(struct workqueue_struct *wq,
 			WARN_ON_ONCE(work_color != work_next_color(pwq->work_color));
 			pwq->work_color = work_color;
 		}
-
-		spin_unlock_irq(&pool->lock);
 	}
+
+	if (current_pool)
+		spin_unlock_irq(&current_pool->lock);
 
 	if (flush_color >= 0 && atomic_dec_and_test(&wq->nr_pwqs_to_flush))
 		complete(&wq->first_flusher->done);
