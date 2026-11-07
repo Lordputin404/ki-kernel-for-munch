@@ -17,7 +17,7 @@ jobs:
       - name: Checkout Kernel
         uses: actions/checkout@v4
         with:
-          ref: main
+          ref: beta-test
           fetch-depth: 1
 
       - name: Install Dependencies
@@ -91,6 +91,74 @@ jobs:
           git clone https://github.com/kvsnr113/AnyKernel3 -b master --single-branch --depth=1 anykernel || \
           git clone https://github.com/osm0sis/AnyKernel3 -b master --single-branch --depth=1 anykernel
           fi
+
+      
+      
+      - name: Download and Integrate KernelSU
+        shell: bash
+        run: |
+          set -e
+
+          echo "Cloning KernelSU..."
+          rm -rf KernelSU
+          git clone https://github.com/backslashxx/KernelSU.git KernelSU
+
+          echo "Checking KernelSU files..."
+          test -f KernelSU/kernel/Kconfig
+          test -f KernelSU/kernel/Makefile
+
+          echo "Creating KernelSU driver symlink..."
+          rm -rf drivers/kernelsu
+          ln -s ../KernelSU/kernel drivers/kernelsu
+
+          echo "Checking drivers/Kconfig..."
+          grep -q 'source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+
+          echo "Updating drivers/Makefile..."
+          grep -q 'CONFIG_KSU.*kernelsu' drivers/Makefile || \
+            echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+
+          echo "Verifying integration..."
+          test -f drivers/kernelsu/Kconfig
+          test -f drivers/kernelsu/Makefile
+
+          ls -l drivers/kernelsu
+          echo "KernelSU integration successful!"
+
+      
+      - name: Integrate NoMount
+        shell: bash
+        run: |
+          set -e
+
+          echo "Downloading NoMount integration..."
+          curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh -o /tmp/nomount-setup.sh
+
+          bash /tmp/nomount-setup.sh
+
+          echo "Verifying NoMount..."
+          test -f fs/nomount/Kconfig
+          test -f fs/nomount/Makefile
+
+          echo "NoMount integration successful!"
+
+      
+      - name: Integrate Baseband Guard
+        shell: bash
+        run: |
+          set -e
+
+          echo "Installing Baseband Guard..."
+          curl -fsSL https://raw.githubusercontent.com/vc-teahouse/Baseband-guard/main/setup.sh -o /tmp/bbg-setup.sh
+
+          bash /tmp/bbg-setup.sh
+
+          echo "Verifying Baseband Guard..."
+          test -f security/baseband-guard/Kconfig
+          test -f security/baseband-guard/Makefile
+
+          echo "Baseband Guard integration successful!"
+          
       
       - name: Compile Kernel
         shell: bash
