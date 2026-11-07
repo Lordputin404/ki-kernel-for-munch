@@ -126,6 +126,22 @@ jobs:
           echo "KernelSU integration successful!"
 
       
+      - name: Integrate NoMount
+        shell: bash
+        run: |
+          set -e
+
+          echo "Downloading NoMount integration..."
+          curl -LSs https://raw.githubusercontent.com/maxsteeel/nomount/refs/heads/dev/kernel/setup.sh -o /tmp/nomount-setup.sh
+
+          bash /tmp/nomount-setup.sh
+
+          echo "Verifying NoMount..."
+          test -f fs/nomount/Kconfig
+          test -f fs/nomount/Makefile
+
+          echo "NoMount integration successful!"
+      
       - name: Compile Kernel
         shell: bash
         run: |
