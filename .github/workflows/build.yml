@@ -91,6 +91,29 @@ jobs:
           git clone https://github.com/kvsnr113/AnyKernel3 -b master --single-branch --depth=1 anykernel || \
           git clone https://github.com/osm0sis/AnyKernel3 -b master --single-branch --depth=1 anykernel
           fi
+
+      
+      - name: Download KernelSU
+        run: |
+          # Remove broken submodule reference from runner checkout only
+          git update-index --force-remove KernelSU || true
+          rm -rf KernelSU drivers/kernelsu
+
+          # Clone the selected KernelSU fork
+          git clone https://github.com/backslashxx/KernelSU.git KernelSU
+
+          # Pin the exact commit
+          git -C KernelSU checkout --detach a27e0c3d98fd79ab795293d73d5990a10b8731d8
+
+          # Verify KernelSU source
+          test -f KernelSU/kernel/Kconfig
+          test -f KernelSU/kernel/Makefile
+
+          # Integrate into kernel tree
+          mkdir -p drivers
+          ln -s ../../KernelSU/kernel drivers/kernelsu
+
+          echo "KernelSU integration ready!"
       
       - name: Compile Kernel
         shell: bash
