@@ -103,7 +103,7 @@ jobs:
           git clone https://github.com/backslashxx/KernelSU.git KernelSU
 
           # Pin the exact commit
-          git -C KernelSU checkout --detach a27e0c3d98fd79ab795293d73d5990a10b8731d8
+          # git -C KernelSU checkout --detach a27e0c3d98fd79ab795293d73d5990a10b8731d8
 
           # Verify KernelSU source
           test -f KernelSU/kernel/Kconfig
