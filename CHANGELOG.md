@@ -8,8 +8,9 @@
 ---
 
 ## Ki-kernel v1.6.3 (Display Brightness Range Calibration & AnyKernel3 GPU OC Flasher) :
-- Ultra-Low Minimum Brightness: Clamped slider (<= 35) to hardware Level 1 with smooth quadratic scaling in SDE connector for comfortable night reading without eye strain
-- Outdoor Max Brightness Boost (Sweet Spot): Increased panel max brightness level from 2047 to 2700 (~650-700 nits, +35% peak brightness) on Samsung E4 AMOLED without excessive thermal or battery drain
+- Display Backlight & Slider Glitch Fix: fixed `sde_backlight_device_get_brightness` returning 0 which caused Android DisplayPowerController and RampAnimator to dip screen brightness to 0 before ramping up or down when dragging the slider
+- Hardware-Accurate Backlight Calibration: calibrated brightness mapping to 11-bit KTZ8866 hardware DAC (2047) and added defensive clamp in dualktz8866 to prevent array out-of-bounds and driver rejection
+- Ultra-Low Minimum Brightness: preserved hardware level 1 at bottom slider with monotonic 1:1 scaling across all ROMs (AOSP, ColorOS, HyperOS)
 - Fixed AnyKernel3 GPU OC vendor_boot flashing: Exported lowercase `block=vendor_boot` alongside uppercase `BLOCK` to ensure DTB partition is repacked correctly on SM8250
 - Added automated GPU OC trigger support: Flasher now detects `/sdcard/oc`, `/sdcard/Download/oc`, and `/tmp/oc` to automatically select 683 MHz OC + UV profile even in app-based flashers (Kernel Flasher)
 - Updated Ki-Settings / Ki-Optimizer module to v1.4.0 with WebUI charging, profile, and thermal toggles
