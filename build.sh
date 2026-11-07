@@ -9,8 +9,9 @@ set -e
 
 TARGET_DEVICE=$1
 KERNEL_NAME="Ki-kernel"
-KERNEL_VERSION="v1.6.0"
+KERNEL_VERSION="v1.6"
 BUILD_DATETIME=$(date +'%Y%m%d_%H%M')
+GIT_HASH=$(git rev-parse --short HEAD 2>/dev/null || echo "nogit")
 
 if [ -z "$1" ]; then
     echo "=========================================================="
@@ -312,8 +313,16 @@ rm -rf include/config include/generated arch/*/include/generated .config 2>/dev/
 rm -rf build_artifacts 2>/dev/null || true
 mkdir -p build_artifacts/aosp build_artifacts/miui
 
-echo "Cloning AnyKernel3..."
-git clone https://github.com/AstideLabs/AnyKernel3 -b kona --single-branch --depth=1 anykernel
+echo "Setting up AnyKernel3..."
+if [ -d "../AnyKernel3" ]; then
+    echo "Using local AnyKernel3 (../AnyKernel3)..."
+    rm -rf anykernel/
+    cp -r ../AnyKernel3 anykernel
+    rm -f anykernel/MUNCH-* anykernel/*.zip 2>/dev/null || true
+else
+    git clone https://github.com/kvsnr113/AnyKernel3 -b master --single-branch --depth=1 anykernel || \
+    git clone https://github.com/osm0sis/AnyKernel3 -b master --single-branch --depth=1 anykernel
+fi
 
 local_version_date_str="-${KERNEL_NAME}-${KERNEL_VERSION}"
 sed -i "s/^CONFIG_LOCALVERSION=.*/CONFIG_LOCALVERSION=\"${local_version_date_str}\"/" arch/arm64/configs/${TARGET_DEVICE}_defconfig
@@ -500,32 +509,19 @@ fi
 # DO NOT include dtbo (preserve panel/touch drivers from ROM)
 rm -f anykernel/dtbo.img anykernel/kernels/dtbo.img anykernel/kernels/*/*.img 2>/dev/null
 cp -f anykernel_template/anykernel.sh anykernel/anykernel.sh
+sed -i "s/| munch /| ${TARGET_DEVICE} /g" anykernel/anykernel.sh
 [ -d anykernel_template/tools ] && cp -rf anykernel_template/tools/* anykernel/tools/ 2>/dev/null || true
 
 cd anykernel
 
 if [ "$TARGET_OS" == "aosp" ]; then
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-AOSP-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-AOSP-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 elif [ "$TARGET_OS" == "miui" ]; then
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-MIUI-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-MIUI-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 elif [ "$TARGET_OS" == "coloros" ]; then
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-ColorOS-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-ColorOS-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 else
-    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-Universal-${KERNEL_VERSION}_${TARGET_DEVICE}.zip"
+    ZIP_FILENAME="${VARIANT_TAG}_Ki-kernel-Universal-${KERNEL_VERSION}_${TARGET_DEVICE}_${BUILD_DATETIME}_${GIT_HASH}.zip"
 fi
 
-zip -r9 "$ZIP_FILENAME" ./* -x .git .gitignore out/ ./*.zip
-mkdir -p ../release
-cp -f "$ZIP_FILENAME" ../release/
-mkdir -p ../../release 2>/dev/null || true
-cp -f "$ZIP_FILENAME" ../../release/ 2>/dev/null || true
-cp -f "$ZIP_FILENAME" /home/kiki/Downloads/ 2>/dev/null || true
-mv "$ZIP_FILENAME" ../
-cd ..
-
-rm -rf build_artifacts 2>/dev/null || true
-
-echo "=========================================================="
-echo "Build Finished Successfully!"
-echo "Flashable Zip: [./$ZIP_FILENAME]"
-echo "=========================================================="
+zip -r9 "$ZIP_FILENA
