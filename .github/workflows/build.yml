@@ -81,10 +81,16 @@ jobs:
 
       - name: Verify AnyKernel3 Access
         run: |
-          echo "Checking AnyKernel3 kona branch..."
-          git ls-remote --exit-code \
-            https://github.com/AstideLabs/AnyKernel3.git \
-            refs/heads/kona
+          echo "Setting up AnyKernel3..."
+          if [ -d "../AnyKernel3" ]; then
+          echo "Using local AnyKernel3 (../AnyKernel3)..."
+          rm -rf anykernel/
+          cp -r ../AnyKernel3 anykernel
+          rm -f anykernel/MUNCH-* anykernel/*.zip 2>/dev/null || true
+          else
+          git clone https://github.com/kvsnr113/AnyKernel3 -b master --single-branch --depth=1 anykernel || \
+          git clone https://github.com/osm0sis/AnyKernel3 -b master --single-branch --depth=1 anykernel
+          fi
       
       - name: Compile Kernel
         shell: bash
