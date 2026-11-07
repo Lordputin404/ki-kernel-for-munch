@@ -141,6 +141,24 @@ jobs:
           test -f fs/nomount/Makefile
 
           echo "NoMount integration successful!"
+
+      
+      - name: Integrate Baseband Guard
+        shell: bash
+        run: |
+          set -e
+
+          echo "Installing Baseband Guard..."
+          curl -fsSL https://raw.githubusercontent.com/vc-teahouse/Baseband-guard/main/setup.sh -o /tmp/bbg-setup.sh
+
+          bash /tmp/bbg-setup.sh
+
+          echo "Verifying Baseband Guard..."
+          test -f security/baseband-guard/Kconfig
+          test -f security/baseband-guard/Makefile
+
+          echo "Baseband Guard integration successful!"
+          
       
       - name: Compile Kernel
         shell: bash
