@@ -79,6 +79,13 @@ jobs:
           aarch64-linux-gnu-ld --version
           arm-linux-gnueabi-gcc --version
 
+      - name: Verify AnyKernel3 Access
+        run: |
+          echo "Checking AnyKernel3 kona branch..."
+          git ls-remote --exit-code \
+            https://github.com/AstideLabs/AnyKernel3.git \
+            refs/heads/kona
+      
       - name: Compile Kernel
         shell: bash
         run: |
