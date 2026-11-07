@@ -1,0 +1,103 @@
+
+name: Ki-Kernel Build
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build munch AOSP NOKSU
+    runs-on: ubuntu-22.04
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout Kernel
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 1
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bc bison build-essential ccache \
+            curl flex git zip unzip \
+            libelf-dev libssl-dev \
+            libncurses-dev libncurses5-dev \
+            device-tree-compiler \
+            python3 python3-pip \
+            rsync lz4 zstd \
+            gcc-aarch64-linux-gnu \
+            binutils-aarch64-linux-gnu \
+            gcc-arm-linux-gnueabi \
+            binutils-arm-linux-gnueabi
+
+      - name: Download ZyCromerZ Clang 16
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$HOME/zyc-clang" "$RUNNER_TEMP/clang"
+
+          gh release download Clang-16.0.6-20260510-release \
+            --repo ZyCromerZ/Clang \
+            --pattern '*.tar.gz' \
+            --dir "$RUNNER_TEMP/clang"
+
+          ARCHIVE=$(find "$RUNNER_TEMP/clang" \
+            -maxdepth 1 -name '*.tar.gz' -print -quit)
+
+          test -n "$ARCHIVE"
+          tar -xzf "$ARCHIVE" -C "$HOME/zyc-clang"
+
+          if [ ! -x "$HOME/zyc-clang/bin/clang" ]; then
+            CLANG_BIN=$(find "$HOME/zyc-clang" \
+              -path '*/bin/clang' -print -quit)
+
+            test -n "$CLANG_BIN"
+            TOOLCHAIN_ROOT="${CLANG_BIN%/bin/clang}"
+            ln -s "$TOOLCHAIN_ROOT/bin" "$HOME/zyc-clang/bin"
+          fi
+
+          echo "$HOME/zyc-clang/bin" >> "$GITHUB_PATH"
+          clang --version
+
+      - name: Prepare Build Environment
+        run: |
+          chmod +x build.sh
+
+          if [ ! -x tools/hostcc ]; then
+            mkdir -p tools
+            ln -sf "$(command -v gcc)" tools/hostcc
+          fi
+
+          echo "Checking toolchain..."
+          clang --version
+          aarch64-linux-gnu-ld --version
+          arm-linux-gnueabi-gcc --version
+
+      - name: Compile Kernel
+        shell: bash
+        run: |
+          set -o pipefail
+          bash build.sh munch noksu aosp 2>&1 | tee build.log
+
+      - name: Upload Build Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Ki-Kernel-munch-AOSP-NOKSU
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            *.zip
+            release/*.zip
+            build.log
+            out/.config
+            out/Module.symvers
+            out/include/config/kernel.release
+            out/arch/arm64/boot/Image
+            out/arch/arm64/boot/dts/**/*.dtb
