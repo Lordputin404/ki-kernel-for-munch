@@ -93,27 +93,38 @@ jobs:
           fi
 
       
-      - name: Download KernelSU
+      
+      - name: Download and Integrate KernelSU
+        shell: bash
         run: |
-          # Remove broken submodule reference from runner checkout only
-          git update-index --force-remove KernelSU || true
-          rm -rf KernelSU drivers/kernelsu
+          set -e
 
-          # Clone the selected KernelSU fork
+          echo "Cloning KernelSU..."
+          rm -rf KernelSU
           git clone https://github.com/backslashxx/KernelSU.git KernelSU
 
-          # Pin the exact commit
-          # git -C KernelSU checkout --detach a27e0c3d98fd79ab795293d73d5990a10b8731d8
-
-          # Verify KernelSU source
+          echo "Checking KernelSU files..."
           test -f KernelSU/kernel/Kconfig
           test -f KernelSU/kernel/Makefile
 
-          # Integrate into kernel tree
-          mkdir -p drivers
-          ln -s ../../KernelSU/kernel drivers/kernelsu
+          echo "Creating KernelSU driver symlink..."
+          rm -rf drivers/kernelsu
+          ln -s ../KernelSU/kernel drivers/kernelsu
 
-          echo "KernelSU integration ready!"
+          echo "Checking drivers/Kconfig..."
+          grep -q 'source "drivers/kernelsu/Kconfig"' drivers/Kconfig
+
+          echo "Updating drivers/Makefile..."
+          grep -q 'CONFIG_KSU.*kernelsu' drivers/Makefile || \
+            echo 'obj-$(CONFIG_KSU) += kernelsu/' >> drivers/Makefile
+
+          echo "Verifying integration..."
+          test -f drivers/kernelsu/Kconfig
+          test -f drivers/kernelsu/Makefile
+
+          ls -l drivers/kernelsu
+          echo "KernelSU integration successful!"
+
       
       - name: Compile Kernel
         shell: bash
