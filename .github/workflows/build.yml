@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    name: Build munch AOSP NOKSU
+    name: Build munch AOSP KSU
     runs-on: ubuntu-22.04
     timeout-minutes: 360
 
@@ -42,7 +42,7 @@ jobs:
         run: |
           mkdir -p "$HOME/zyc-clang" "$RUNNER_TEMP/clang"
 
-          gh release download Clang-16.0.6-20260510-release \
+          gh release download 16.0.6-20260510-release \
             --repo ZyCromerZ/Clang \
             --pattern '*.tar.gz' \
             --dir "$RUNNER_TEMP/clang"
@@ -83,13 +83,13 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          bash build.sh munch noksu aosp 2>&1 | tee build.log
+          bash build.sh munch ksu aosp 2>&1 | tee build.log
 
       - name: Upload Build Artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Ki-Kernel-munch-AOSP-NOKSU
+          name: Ki-Kernel-munch-AOSP-KSU
           if-no-files-found: warn
           retention-days: 14
           path: |
